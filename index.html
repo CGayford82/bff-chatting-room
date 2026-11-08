@@ -169,6 +169,9 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(190px,220px) 
 .bigemoji{font-size:clamp(40px,7vw,64px);line-height:1.1}
 .opts{display:grid;gap:8px;width:min(380px,100%)}
 .opt{text-align:center;padding:10px 12px;font-size:15px}
+.board{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:380px}
+.bchip{display:grid;border:3px solid var(--line);border-radius:12px;padding:3px 10px;color:var(--ink-fixed);font:700 12px/1.2 var(--display);box-shadow:2px 2px 0 var(--line)}
+.bchip b{font-size:14px}
 .opt.right{background:#8EE6B2}.opt.wrong{background:#FFB5BE}
 
 /* ---------- game area ---------- */
@@ -296,7 +299,9 @@ const ICON={
 };
 const GAMES=[
  {id:"sketch",name:"Sketchboard",blurb:"Draw together",icon:"brush",c:"#FF5FA8",live:true,note:"everyone sees what you draw"},
- {id:"cars",name:"Car Race",blurb:"Cartoon cars",icon:"car",c:"#FF8A3D",live:true,note:"tap or press Space to zoom"}
+ {id:"cars",name:"Car Race",blurb:"Cartoon cars",icon:"car",c:"#FF8A3D",live:true,note:"tap or press Space to zoom"},
+ {id:"hangman",name:"Hangman",blurb:"Guess together",icon:"hang",c:"#FF9CCB",live:true,note:"everyone guesses one word"},
+ {id:"snake",name:"Snakemania",blurb:"Score battle",icon:"snake",c:"#1FAF65",live:true,note:"60 seconds, most apples wins"}
 ];
 const $=s=>document.querySelector(s);
 const el=(t,cls,txt)=>{const e=document.createElement(t);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
@@ -598,6 +603,8 @@ function renderGame(){
   if(sketch){sketch.destroy();sketch=null}
   if(g.id==="sketch"){sketch=makeSketch(stage,tools);return}
   if(g.id==="cars"){sketch=makeRace(stage);return}
+  if(g.id==="hangman"){sketch=makeHangman(stage);return}
+  if(g.id==="snake"){sketch=makeSnake(stage);return}
   const ph=el("div","placeholder");
   const bi=el("div","bigicon");bi.style.background=g.c;bi.innerHTML=ICON[g.icon];
   ph.append(bi,el("h3","",g.name+" is coming soon!"),el("p","","Try the Sketchboard while we build it."));
@@ -863,6 +870,179 @@ function makeRace(stage){
   return{destroy(){alive=false;clearInterval(botT);timers.forEach(clearTimeout);clearTimeout(ctlT);window.removeEventListener("keydown",onKey);if(offRace)offRace()}};
 }
 
+/* ================= helpers for shared games ================= */
+const gameShell=stage=>{const w=el("div","gm");stage.append(w);return w};
+const typingTarget=e=>{const t=e.target&&e.target.tagName;return t==="INPUT"||t==="TEXTAREA"};
+const mulberry=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+
+/* ================= Hangman (everyone guesses together) ================= */
+const HANG_WORDS=[["animal","elephant"],["animal","kangaroo"],["animal","butterfly"],["animal","octopus"],["animal","crocodile"],["animal","flamingo"],["animal","penguin"],["food","spaghetti"],["food","pancake"],["food","chocolate"],["food","strawberry"],["food","popcorn"],["food","cinnamon"],["place","library"],["place","playground"],["place","mountain"],["place","aquarium"],["place","museum"],["thing","skateboard"],["thing","backpack"],["thing","telescope"],["thing","trampoline"],["thing","headphones"],["thing","umbrella"],["thing","sunglasses"]];
+function makeHangman(stage){
+  const wrap=gameShell(stage);let alive=true,state=null,offG=null,posted="";
+  const LIVES=6;
+  const wrongOf=s=>[...s.guessed].filter(c=>!s.word.includes(c)).length;
+  const statusOf=s=>{if(!s||!s.word)return"none";if([...s.word].every(c=>s.guessed.includes(c)))return"won";if(wrongOf(s)>=LIVES)return"lost";return"play"};
+  const svgFor=n=>{
+    const parts=['<circle cx="110" cy="50" r="16"/>','<path d="M110 66v50"/>','<path d="M110 80l-24 20"/>','<path d="M110 80l24 20"/>','<path d="M110 116l-22 34"/>','<path d="M110 116l22 34"/>'];
+    return '<svg viewBox="0 0 160 180" class="hang" aria-hidden="true"><g fill="none" stroke="#2B1A55" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 170h110M45 170V15h65v20"/>'+parts.slice(0,n).join("")+'</g></svg>';
+  };
+  function newWord(){
+    if(!me){showPicker();return}
+    const pool=HANG_WORDS.filter(p=>!state||p[1]!==state.word),p=pool[Math.floor(Math.random()*pool.length)];
+    const st={id:Date.now()+"-"+Math.random().toString(36).slice(2,6),ts:Date.now(),word:p[1],cat:p[0],guessed:"",last:"",by:me};
+    if(net)net.setGame("hangman",st);else{state=st;draw()}
+  }
+  function guess(c){
+    if(!me){showPicker();return}
+    if(!state||statusOf(state)!=="play"||state.guessed.includes(c))return;
+    if(net)net.guess(c,me);
+    else{state=Object.assign({},state,{guessed:state.guessed+c,last:c+"|"+me});draw()}
+  }
+  function draw(){
+    wrap.textContent="";
+    if(!state||!state.word){
+      wrap.append(el("div","hint","Everyone guesses the same word together!"));
+      const b=el("button","btn pink","Start a word");b.type="button";b.onclick=newWord;wrap.append(b);return;
+    }
+    const st=statusOf(state),wrong=wrongOf(state);
+    const box=el("div","hangbox");box.innerHTML=svgFor(wrong);
+    const right=el("div","hangright");
+    right.append(el("div","hint","Clue: it's a "+state.cat+" · Lives left: "+Math.max(0,LIVES-wrong)));
+    const w=el("div","tiles");
+    [...state.word].forEach(c=>w.append(el("span","tile"+(state.guessed.includes(c)?"":" blank"),state.guessed.includes(c)||st==="lost"?c:"")));
+    right.append(w);
+    const lp=(state.last||"").split("|");
+    if(lp[0])right.append(el("div","hint",(lp[1]===me?"You":lp[1])+" guessed “"+lp[0].toUpperCase()+"”"));
+    if(st==="won")right.append(el("div","win","You did it together!"));
+    if(st==="lost")right.append(el("div","win","The word was “"+state.word+"”"));
+    box.append(right);wrap.append(box);
+    const kb=el("div","letters");
+    "abcdefghijklmnopqrstuvwxyz".split("").forEach(c=>{
+      const b=el("button","lt",c.toUpperCase());b.type="button";
+      if(state.guessed.includes(c)){b.disabled=true;b.classList.add(state.word.includes(c)?"hit":"miss")}
+      else if(st!=="play")b.disabled=true;
+      b.onclick=()=>guess(c);kb.append(b);
+    });
+    wrap.append(kb);
+    if(st!=="play"){const row=el("div","row wrap");row.style.justifyContent="center";const nb=el("button","btn pink","Next word");nb.type="button";nb.onclick=newWord;row.append(nb);wrap.append(row)}
+    if(st==="won"&&lp[1]===me&&posted!==state.id){posted=state.id;postMessage("🪢 We solved Hangman together!")}
+  }
+  const onKey=e=>{if(typingTarget(e)||e.ctrlKey||e.metaKey||e.altKey)return;if(/^[a-z]$/i.test(e.key))guess(e.key.toLowerCase())};
+  window.addEventListener("keydown",onKey);
+  if(net)offG=net.onGame("hangman",d=>{if(!alive)return;state=d&&d.word?d:null;draw()});
+  draw();
+  return{destroy(){alive=false;window.removeEventListener("keydown",onKey);if(offG)offG()}};
+}
+
+/* ================= Snakemania score battle ================= */
+function makeSnake(stage){
+  const N=20,C=20,W=N*C,DUR=60;
+  const wrap=gameShell(stage);
+  const top=el("div","row wrap");top.style.justifyContent="center";
+  const scoreEl=el("div","pill","Score: 0"),timeEl=el("div","pill","Time: "+DUR);top.append(scoreEl,timeEl);
+  const cv=document.createElement("canvas");cv.width=W;cv.height=W;cv.style.cursor="default";cv.style.width="min(100%,360px)";cv.style.height="auto";cv.style.aspectRatio="1";cv.style.touchAction="none";
+  const ctx=cv.getContext("2d");
+  const stat=el("div","hint","Everyone plays at once for "+DUR+" seconds. Most apples wins!");
+  const board=el("div","board");
+  const pad=el("div","dpad");
+  const mkB=(t,d)=>{const b=el("button","btn yellow",t);b.type="button";b.setAttribute("aria-label","Turn "+d);b.onpointerdown=e=>{e.preventDefault();turn(d)};return b};
+  pad.append(el("span"),mkB("▲","up"),el("span"),mkB("◀","left"),mkB("▼","down"),mkB("▶","right"));
+  const row=el("div","row wrap");row.style.justifyContent="center";
+  const startB=el("button","btn pink","Start the battle!");startB.type="button";row.append(startB);
+  wrap.append(top,cv,stat,board,pad,row);
+  const DIRS={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+  let phase="idle",rid="",snake,dir,nextDir,apple,gold,score=0,grow=0,rng,tEnd=0,tm=null,clock=null,alive=true,count="";
+  const seen=new Set(),timers=[];let scores=new Map(),offG=null,offS=null,postedRid="";
+  const free=(x,y)=>!snake.some(s=>s[0]===x&&s[1]===y)&&!(apple&&apple[0]===x&&apple[1]===y)&&!(gold&&gold[0]===x&&gold[1]===y);
+  const spot=()=>{let x,y,t=0;do{x=Math.floor(rng()*N);y=Math.floor(rng()*N);t++}while(!free(x,y)&&t<400);return[x,y]};
+  function pushScore(done){if(net&&me)net.setScore(me,{rid,score,done:!!done,ts:Date.now()})}
+  function begin(id,seed){
+    if(seen.has(id)||(phase!=="idle"&&phase!=="done"))return;
+    seen.add(id);rid=id;phase="count";rng=mulberry(Number(seed)||1);
+    snake=[[10,10],[9,10],[8,10]];dir=DIRS.right;nextDir=dir;apple=null;gold=null;score=0;grow=0;apple=spot();
+    scoreEl.textContent="Score: 0";timeEl.textContent="Time: "+DUR;startB.disabled=true;stat.textContent="Get ready!";
+    pushScore(false);drawAll();
+    ["3","2","1","GO!"].forEach((t,i)=>timers.push(setTimeout(()=>{if(!alive||phase!=="count")return;count=t;drawAll();if(t==="GO!")timers.push(setTimeout(go,450))},i*800)));
+  }
+  function go(){
+    if(!alive||phase!=="count")return;
+    phase="play";count="";tEnd=Date.now()+DUR*1000;stat.textContent="Eat the apples! Golden stars are worth 3.";
+    clock=setInterval(()=>{const left=Math.max(0,Math.ceil((tEnd-Date.now())/1000));timeEl.textContent="Time: "+left;if(left<=0)finish("Time's up!")},250);
+    tm=setTimeout(loop,200);
+  }
+  function loop(){if(!alive||phase!=="play")return;step();drawAll();if(phase==="play")tm=setTimeout(loop,Math.max(70,150-score*3))}
+  function step(){
+    dir=nextDir;const h=snake[0],nx=h[0]+dir[0],ny=h[1]+dir[1];
+    if(nx<0||ny<0||nx>=N||ny>=N||snake.some((s,i)=>i<snake.length-(grow>0?0:1)&&s[0]===nx&&s[1]===ny)){finish("Crash! Your snake stopped.");return}
+    snake.unshift([nx,ny]);
+    if(apple&&nx===apple[0]&&ny===apple[1]){score+=1;grow+=1;apple=null;apple=spot();if(!gold&&rng()<.25){gold=spot();gold.push(45)}pushScore(false)}
+    else if(gold&&nx===gold[0]&&ny===gold[1]){score+=3;grow+=2;gold=null;pushScore(false)}
+    if(gold){gold[2]--;if(gold[2]<=0)gold=null}
+    if(grow>0)grow--;else snake.pop();
+    scoreEl.textContent="Score: "+score;
+  }
+  function finish(msg){
+    if(phase!=="play")return;
+    phase="done";clearTimeout(tm);clearInterval(clock);startB.disabled=false;startB.textContent="Start another battle!";
+    stat.textContent=msg+" You scored "+score+".";pushScore(true);drawAll();renderBoard();
+  }
+  function turn(d){const v=DIRS[d];if(!v||phase!=="play")return;if(v[0]===-dir[0]&&v[1]===-dir[1])return;nextDir=v}
+  startB.onclick=()=>{
+    if(!me){showPicker();return}
+    if(phase==="play"||phase==="count")return;
+    const id=Date.now()+"-"+Math.random().toString(36).slice(2,6),seed=Math.floor(Math.random()*1e9);
+    begin(id,seed);if(net)net.setGame("snake",{id,ts:Date.now(),seed,dur:DUR,by:me});
+  };
+  function boardRid(){
+    if(rid)return rid;let best=null;scores.forEach(v=>{if(v&&typeof v.ts==="number"&&(!best||v.ts>best.ts))best=v});return best?best.rid:""
+  }
+  function renderBoard(){
+    board.textContent="";
+    const r=boardRid();
+    const list=[...scores.entries()].filter(([n,v])=>v&&v.rid===r&&FRIENDS.some(f=>f.n===n)).sort((a,b)=>b[1].score-a[1].score);
+    if(!list.length)return;
+    list.forEach(([n,v],i)=>{
+      const chip=el("div","bchip");chip.style.background=colorOf(n);
+      chip.append(el("b","",(i===0&&v.done?"🏆 ":"")+(n===me?"You":n)),el("span","",v.score+(v.done?" · done":" · playing")));
+      board.append(chip);
+    });
+    const allDone=list.every(([n,v])=>v.done);
+    if(allDone&&phase!=="play"&&phase!=="count"){
+      const top=list[0][1].score,winners=list.filter(([n,v])=>v.score===top);
+      board.append(el("div","win",winners.length===1?"🏆 "+(winners[0][0]===me?"You win":winners[0][0]+" wins")+" with "+top+"!":"It's a tie at "+top+"!"));
+      if(winners.length===1&&winners[0][0]===me&&postedRid!==r&&top>0){postedRid=r;postMessage("🐍 I won the Snakemania battle with "+top+"!")}
+    }
+  }
+  function drawAll(){
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){ctx.fillStyle=(x+y)%2?"#FFF3B8":"#FFE98A";ctx.fillRect(x*C,y*C,C,C)}
+    if(!snake||phase==="idle"){ctx.fillStyle="rgba(43,26,85,.7)";ctx.font="800 30px Baloo 2, sans-serif";ctx.textAlign="center";ctx.fillText("Snakemania",W/2,W/2-4);ctx.font="700 16px Baloo 2, sans-serif";ctx.fillText("Press Start the battle!",W/2,W/2+24);return}
+    if(apple){const[x,y]=apple;ctx.fillStyle="#E5384F";ctx.strokeStyle="#2B1A55";ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x*C+C/2,y*C+C/2+1,C/2-3,0,7);ctx.fill();ctx.stroke();ctx.fillStyle="#1FAF65";ctx.fillRect(x*C+C/2-1,y*C+1,3,5)}
+    if(gold){const[x,y]=gold;ctx.fillStyle="#FFD23F";ctx.strokeStyle="#2B1A55";ctx.lineWidth=2.5;ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?4:C/2-1;ctx.lineTo(x*C+C/2+Math.cos(a)*r,y*C+C/2+Math.sin(a)*r)}ctx.closePath();ctx.fill();ctx.stroke()}
+    const mine=colorOf(me);
+    snake.forEach((s,i)=>{const x=s[0]*C,y=s[1]*C;ctx.fillStyle=i%2?mine:shade(mine);ctx.strokeStyle="#2B1A55";ctx.lineWidth=2.5;ctx.beginPath();ctx.roundRect?ctx.roundRect(x+1.5,y+1.5,C-3,C-3,6):ctx.rect(x+1.5,y+1.5,C-3,C-3);ctx.fill();ctx.stroke()});
+    const h=snake[0],cx=h[0]*C+C/2,cy=h[1]*C+C/2,px=-dir[1],py=dir[0];
+    [1,-1].forEach(sd=>{const ex=cx+dir[0]*4+px*3.5*sd,ey=cy+dir[1]*4+py*3.5*sd;ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(ex,ey,3.2,0,7);ctx.fill();ctx.fillStyle="#2B1A55";ctx.beginPath();ctx.arc(ex+dir[0],ey+dir[1],1.5,0,7);ctx.fill()});
+    if(phase==="count"&&count){ctx.fillStyle="rgba(43,26,85,.45)";ctx.fillRect(0,0,W,W);ctx.fillStyle="#fff";ctx.font="800 80px Baloo 2, sans-serif";ctx.textAlign="center";ctx.fillText(count,W/2,W/2+28)}
+    if(phase==="done"){ctx.fillStyle="rgba(43,26,85,.5)";ctx.fillRect(0,0,W,W);ctx.fillStyle="#fff";ctx.font="800 34px Baloo 2, sans-serif";ctx.textAlign="center";ctx.fillText("Score "+score,W/2,W/2+10)}
+  }
+  function shade(c){const n=parseInt(c.slice(1),16);return"#"+[(n>>16)&255,(n>>8)&255,n&255].map(v=>Math.round(v*.82).toString(16).padStart(2,"0")).join("")}
+  const onKey=e=>{
+    if(typingTarget(e)||phase!=="play")return;
+    const m={ArrowUp:"up",ArrowDown:"down",ArrowLeft:"left",ArrowRight:"right",w:"up",s:"down",a:"left",d:"right",W:"up",S:"down",A:"left",D:"right"}[e.key];
+    if(m){e.preventDefault();turn(m)}
+  };
+  window.addEventListener("keydown",onKey);
+  let sx=0,sy=0;
+  cv.addEventListener("pointerdown",e=>{sx=e.clientX;sy=e.clientY});
+  cv.addEventListener("pointerup",e=>{const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;turn(Math.abs(dx)>Math.abs(dy)?(dx>0?"right":"left"):(dy>0?"down":"up"))});
+  if(net){
+    offG=net.onGame("snake",d=>{if(!alive||!d||typeof d.id!=="string")return;if(Date.now()-(d.ts||0)<8000)begin(d.id,d.seed)});
+    offS=net.onScores(docs=>{scores=new Map(docs.map(d=>[d.id,d.data]));renderBoard()});
+  }
+  drawAll();
+  return{destroy(){alive=false;clearTimeout(tm);clearInterval(clock);timers.forEach(clearTimeout);window.removeEventListener("keydown",onKey);if(offG)offG();if(offS)offS()}};
+}
+
 /* ================= start ================= */
 renderFriends();renderGames();renderGame();renderComposer();renderMessages();
 $("#chatStatus").textContent="connecting…";
@@ -927,6 +1107,15 @@ function start(fs){
       const r=doc(fs,"race","_control"),sn=await tx.get(r);
       if(sn.exists()&&sn.data().id===rid&&!sn.data().winner)tx.update(r,{winner:n});
     }),
+    setGame:(id,o)=>setDoc(doc(fs,"games",id),o).catch(ign),
+    onGame:(id,cb)=>onSnapshot(doc(fs,"games",id),s=>cb(s.exists()?s.data():null),ign),
+    guess:(c,n)=>runTransaction(fs,async tx=>{
+      const r=doc(fs,"games","hangman"),sn=await tx.get(r);if(!sn.exists())return;
+      const d=sn.data();if(d.guessed.includes(c))return;
+      tx.update(r,{guessed:d.guessed+c,last:c+"|"+n});
+    }).catch(ign),
+    setScore:(n,o)=>setDoc(doc(fs,"scores",n),o).catch(ign),
+    onScores:cb=>onSnapshot(collection(fs,"scores"),s=>cb(s.docs.map(d=>({id:d.id,data:d.data()}))),ign),
     onRace:cb=>onSnapshot(collection(fs,"race"),s=>cb(s.docs.map(d=>({id:d.id,data:d.data()}))),ign)
   };
   onSnapshot(collection(fs,"presence"),s=>{presenceMap=new Map(s.docs.map(d=>[d.id,d.data()]));computeOnline()},ign);
