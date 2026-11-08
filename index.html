@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BFF Chatting Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;800&display=swap">
+<style>
+/* Layout: header on top; below it a games rail, the chat feed, and the game area, side by side.
+   Palette: butter yellow, orange, pink, purple with deep-purple outlines. Cartoon: thick outlines, hard shadows. */
+:root{
+  --bg:#FFF1A6; --panel:#FFFFFF; --panel2:#FFF8D6; --fg:#2B1A55; --fg-soft:#6A55A0; --line:#2B1A55;
+  --yellow:#FFD23F; --orange:#FF8A3D; --pink:#FF5FA8; --purple:#7C4DFF; --lilac:#C9B3FF;
+  --good:#1FAF65; --bad:#E5384F; --paper:#FFFFFF; --ink-fixed:#2B1A55;
+  --display:"Baloo 2","Trebuchet MS",system-ui,sans-serif; --body:"Nunito","Trebuchet MS",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1D1042; --panel:#2E1D5E; --panel2:#3A2674; --fg:#FFF3D1; --fg-soft:#C9B9FF; --line:#0E0725;
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#1D1042; --panel:#2E1D5E; --panel2:#3A2674; --fg:#FFF3D1; --fg-soft:#C9B9FF; --line:#0E0725;
+  color-scheme:dark;}
+*{box-sizing:border-box}
+body{margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.35;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));
+  padding-block:10px;overflow-x:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px dashed var(--purple);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column;gap:10px;min-height:640px}
+
+/* ---------- header ---------- */
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--pink);border:3px solid var(--line);
+  border-radius:22px;box-shadow:4px 4px 0 var(--line);padding:8px 14px;color:var(--ink-fixed)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-badge{width:46px;height:46px;border-radius:50%;background:var(--yellow);border:3px solid var(--line);display:grid;place-items:center;
+  font:800 17px/1 var(--display);transform:rotate(-8deg)}
+.logo h1{margin:0;font:800 clamp(20px,2.4vw,30px)/1 var(--display);letter-spacing:.2px}
+.friends{display:flex;gap:8px;flex-wrap:wrap;flex:1;justify-content:center;min-width:0}
+.friend{display:flex;align-items:center;gap:7px;background:#fff;border:3px solid var(--line);border-radius:999px;padding:3px 12px 3px 4px;
+  font:700 14px/1 var(--display);position:relative;transition:filter .2s,opacity .2s}
+.friend .av{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:800 14px/1 var(--display)}
+.friend .dot{width:11px;height:11px;border-radius:50%;background:var(--good);border:2px solid var(--line);flex:none}
+.friend.off{filter:grayscale(1);opacity:.5}
+.friend.off .dot{background:#9a9a9a}
+.friend.me{box-shadow:0 0 0 3px var(--yellow)}
+.whoami{background:var(--yellow);border:3px solid var(--line);border-radius:999px;padding:5px 14px;font:700 14px var(--display);box-shadow:2px 2px 0 var(--line);color:var(--ink-fixed)}
+.whoami:active{transform:translate(2px,2px);box-shadow:none}
+
+/* ---------- main grid ---------- */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(190px,220px) minmax(320px,1.05fr) minmax(320px,1.2fr);gap:10px}
+.card{background:var(--panel);border:3px solid var(--line);border-radius:22px;box-shadow:4px 4px 0 var(--line);min-height:0;min-width:0;display:flex;flex-direction:column}
+.card h2{margin:0;font:800 18px/1.1 var(--display)}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:3px solid var(--line);background:var(--panel2);border-radius:19px 19px 0 0}
+
+/* ---------- left rail ---------- */
+.rail{overflow:auto}
+.rail section{padding:12px 12px 6px}
+.rail h3{margin:0 0 8px;font:700 12px/1 var(--display);letter-spacing:1.2px;text-transform:uppercase;color:var(--fg-soft)}
+.toggle{width:100%;display:flex;align-items:center;gap:10px;text-align:left;background:var(--panel2);border:3px solid var(--line);border-radius:16px;padding:8px 10px}
+.toggle .sw{flex:none;width:46px;height:26px;border-radius:999px;border:3px solid var(--line);background:#cfc6ea;position:relative;transition:background .15s}
+.toggle .sw::after{content:"";position:absolute;top:1px;left:1px;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--line);transition:transform .15s}
+.toggle[aria-pressed="true"] .sw{background:var(--orange)}
+.toggle[aria-pressed="true"] .sw::after{transform:translateX(20px)}
+.toggle b{font:800 15px/1.1 var(--display);display:block}
+.toggle small{color:var(--fg-soft);font-size:12px;display:block}
+.glist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.game{width:100%;display:flex;align-items:center;gap:10px;text-align:left;background:var(--panel);border:3px solid var(--line);border-radius:16px;padding:7px 9px;box-shadow:2px 2px 0 var(--line)}
+.game:hover{background:var(--panel2)}
+.game[aria-current="true"]{background:var(--yellow);color:var(--ink-fixed)}
+.game:active{transform:translate(2px,2px);box-shadow:none}
+.game .gi{flex:none;width:34px;height:34px;border-radius:12px;border:3px solid var(--line);display:grid;place-items:center;color:var(--ink-fixed)}
+.game .gi svg{width:20px;height:20px}
+.game b{font:700 14px/1.1 var(--display);display:block}
+.game small{font-size:11.5px;color:var(--fg-soft);display:block}
+.game[aria-current="true"] small{color:var(--ink-fixed)}
+.soon{margin-left:auto;font:700 10px/1 var(--display);background:var(--lilac);color:var(--ink-fixed);border:2px solid var(--line);border-radius:999px;padding:3px 7px}
+
+/* ---------- chat ---------- */
+.feed{flex:1;min-height:120px;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:86%;display:flex;flex-direction:column;gap:2px}
+.msg.me{align-self:flex-end;align-items:flex-end}
+.msg .who{font:700 12px/1 var(--display);color:var(--fg-soft);padding:0 6px}
+.bubble{border:3px solid var(--line);border-radius:18px 18px 18px 4px;padding:7px 12px;color:var(--ink-fixed);word-break:break-word;font-weight:600;box-shadow:2px 2px 0 var(--line)}
+.msg.me .bubble{border-radius:18px 18px 4px 18px}
+.badge{font:700 11px/1 var(--display);color:var(--fg-soft);padding:0 6px}
+.empty{margin:auto;text-align:center;color:var(--fg-soft);font:700 16px/1.3 var(--display);max-width:240px}
+.banner{margin:8px 12px 0;padding:6px 10px;border:2px dashed var(--line);border-radius:12px;font-size:12.5px;background:var(--panel2)}
+.composer{border-top:3px solid var(--line);padding:10px;background:var(--panel2);border-radius:0 0 19px 19px}
+.row{display:flex;gap:8px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.txt{flex:1;min-width:0;border:3px solid var(--line);border-radius:14px;padding:9px 12px;font:600 15px var(--body);background:var(--panel);color:var(--fg)}
+.btn{border:3px solid var(--line);border-radius:14px;padding:8px 14px;font:800 14px/1 var(--display);background:var(--orange);color:var(--ink-fixed);box-shadow:3px 3px 0 var(--line)}
+.btn:active:not(:disabled){transform:translate(3px,3px);box-shadow:none}
+.btn.pink{background:var(--pink)} .btn.purple{background:var(--purple);color:#fff} .btn.yellow{background:var(--yellow)} .btn.plain{background:var(--panel);color:var(--fg)}
+.btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:2px 2px 0 var(--line)}
+
+/* ---------- car race ---------- */
+.race{width:100%;height:100%;display:flex;flex-direction:column;gap:8px;padding:2px}
+.race-hint{font:700 14px var(--display);color:var(--fg-soft);text-align:center}
+.lanes{flex:1;display:flex;flex-direction:column;gap:6px;justify-content:center;min-height:0}
+.lane{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:8px}
+.lname{font:800 14px/1 var(--display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track{position:relative;height:48px;border:3px solid var(--line);border-radius:14px;overflow:hidden;
+  background:repeating-linear-gradient(90deg,#9c93c4 0 24px,#a79fcc 24px 48px)}
+.track::after{content:"";position:absolute;right:0;top:0;bottom:0;width:16px;
+  background:repeating-conic-gradient(#2B1A55 0 25%,#fff 0 50%) 0 0/8px 8px}
+.car{position:absolute;top:2px;width:68px;height:38px;left:calc((100% - 86px) * var(--p,0) / 100);transition:left .1s linear}
+.car svg{width:100%;height:100%;display:block}
+.race-ctl{display:grid;gap:8px;justify-items:center;min-height:84px;align-content:center}
+.gobtn{width:min(340px,100%);padding:16px 10px;font:800 26px/1 var(--display);border:3px solid var(--line);border-radius:20px;background:var(--orange);
+  color:var(--ink-fixed);box-shadow:4px 4px 0 var(--line);touch-action:manipulation;user-select:none}
+.gobtn:active{transform:translate(4px,4px);box-shadow:none}
+.count{font:800 56px/1 var(--display);color:var(--purple)}
+.win{font:800 24px/1.1 var(--display);text-align:center;background:var(--yellow);color:var(--ink-fixed);border:3px solid var(--line);border-radius:16px;padding:8px 14px}
+
+/* ---------- game area ---------- */
+.stage{flex:1;min-height:200px;display:grid;place-items:center;padding:10px;position:relative;overflow:hidden}
+canvas{border:3px solid var(--line);border-radius:14px;background:var(--paper);touch-action:none;cursor:crosshair;box-shadow:3px 3px 0 var(--line);display:block}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;border-top:3px solid var(--line);background:var(--panel2);border-radius:0 0 19px 19px}
+.sw-c{width:30px;height:30px;border-radius:50%;border:3px solid var(--line);padding:0}
+.sw-c[aria-pressed="true"]{box-shadow:0 0 0 3px var(--panel),0 0 0 6px var(--line);transform:scale(1.08)}
+.size{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);background:var(--panel);display:grid;place-items:center;padding:0}
+.size i{display:block;border-radius:50%;background:var(--fg)}
+.size[aria-pressed="true"]{background:var(--yellow)}
+.size[aria-pressed="true"] i{background:var(--ink-fixed)}
+.sep{width:3px;align-self:stretch;background:var(--line);border-radius:3px;opacity:.35}
+.placeholder{text-align:center;max-width:300px;display:grid;gap:10px;justify-items:center}
+.placeholder h3{margin:0;font:800 22px/1.1 var(--display)}
+.placeholder p{margin:0;color:var(--fg-soft)}
+.bigicon{width:84px;height:84px;border-radius:26px;border:3px solid var(--line);box-shadow:4px 4px 0 var(--line);display:grid;place-items:center;color:var(--ink-fixed)}
+.bigicon svg{width:48px;height:48px}
+
+/* ---------- who are you ---------- */
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(20,8,50,.6);display:grid;place-items:center;padding:16px}
+.dialog{background:var(--panel);border:3px solid var(--line);border-radius:26px;box-shadow:6px 6px 0 var(--line);padding:20px;max-width:520px;width:100%;text-align:center}
+.dialog h2{margin:0 0 4px;font:800 28px/1.1 var(--display)}
+.dialog p{margin:0 0 14px;color:var(--fg-soft)}
+.picks{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.pick{border:3px solid var(--line);border-radius:18px;padding:12px 8px;font:800 18px var(--display);color:var(--ink-fixed);box-shadow:3px 3px 0 var(--line)}
+.pick:active{transform:translate(3px,3px);box-shadow:none}
+
+@media (max-width:980px){
+  #app{height:auto}
+  main{grid-template-columns:1fr}
+  .rail{max-height:none}
+  .glist{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .feed{max-height:50vh}
+  .card.gamecard{min-height:480px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head><body>
+
+<div id="app">
+  <header>
+    <div class="logo"><div class="logo-badge" aria-hidden="true">BFF</div><h1>BFF Chatting Room</h1></div>
+    <div class="friends" id="friends" aria-label="Friends and who is online"></div>
+    <button class="whoami" id="whoami" type="button">Playing as …</button>
+  </header>
+  <main>
+    <aside class="card rail" aria-label="Games">
+      <section>
+        <h3>Games</h3>
+        <ul class="glist" id="glist"></ul>
+      </section>
+    </aside>
+
+    <section class="card" aria-label="Chat">
+      <div class="card-head"><h2>Chat</h2><span class="badge" id="chatStatus"></span></div>
+      <div id="banner"></div>
+      <div class="feed" id="feed" aria-live="polite"></div>
+      <div class="composer" id="composer"></div>
+    </section>
+
+    <section class="card gamecard" aria-label="Game area">
+      <div class="card-head"><h2 id="gameTitle">Game area</h2><span class="badge" id="gameNote"></span></div>
+      <div class="stage" id="stage"></div>
+      <div id="toolsHost"></div>
+    </section>
+  </main>
+</div>
+<div id="overlayHost"></div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,signInAnonymously} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,doc,getDoc,setDoc,addDoc,deleteDoc,onSnapshot,query,orderBy as fbOrderBy,limit as fbLimit,runTransaction} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const firebaseConfig={
+  apiKey:"AIzaSyBEDn2ZKFz97JIw2JlfoSMVUDfImJD8ZuI",
+  authDomain:"bff-chatting-room.firebaseapp.com",
+  projectId:"bff-chatting-room",
+  storageBucket:"bff-chatting-room.firebasestorage.app",
+  messagingSenderId:"358842946951",
+  appId:"1:358842946951:web:fbc8d87850278c4d04ef22"
+};
+(function(){
+"use strict";
+/* ================= data ================= */
+const FRIENDS=[
+  {n:"Bridget",c:"#6EE7B7"},{n:"Lilly",c:"#FF5FA8"},{n:"Riley",c:"#FF8A3D"},{n:"Vienna",c:"#9B7BFF"},
+  {n:"Chevonne",c:"#FFD23F"},{n:"Marlo",c:"#FF7A6B"},{n:"Avery",c:"#C9B3FF"}
+];
+const colorOf=n=>(FRIENDS.find(f=>f.n===n)||{c:"#C9B3FF"}).c;
+const ICON={
+ brush:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c3 0 5-1 5-4 0-1.5-1-2.500-2.500-2.500S4 14.500 4 16.500V20z"/><path d="M9 14.500 19 4.500a2.100 2.100 0 0 1 3 3L12 17.500"/></svg>',
+ car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h14l2 5v3z"/><circle cx="7.500" cy="16.500" r="2" fill="currentColor"/><circle cx="16.500" cy="16.500" r="2" fill="currentColor"/></svg>',
+ keys:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.500" y="6" width="19" height="12" rx="3"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
+ abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 7 7l4 11M4.500 14h5M14 6v12h3.500a3 3 0 0 0 0-6H14"/></svg>',
+ hang:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h8M8 21V3h9v4"/><circle cx="17" cy="10" r="3"/></svg>',
+ cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="11" rx="2"/><rect x="13" y="9" width="8" height="11" rx="2"/></svg>',
+ quiz:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.7.400-1 .9-1 1.700M12 17h.01"/></svg>',
+};
+const GAMES=[
+ {id:"sketch",name:"Sketchboard",blurb:"Draw together",icon:"brush",c:"#FF5FA8",live:true,note:"everyone sees what you draw"},
+ {id:"cars",name:"Car Race",blurb:"Cartoon cars",icon:"car",c:"#FF8A3D",live:true,note:"tap or press Space to zoom"},
+ {id:"scramble",name:"Word Scramble",blurb:"Unjumble words",icon:"abc",c:"#C9B3FF"},
+ {id:"hangman",name:"Hangman",blurb:"Guess the word",icon:"hang",c:"#FF9CCB"},
+ {id:"memory",name:"Memory Match",blurb:"Flip the cards",icon:"cards",c:"#FFB27A"},
+ {id:"trivia",name:"Emoji Trivia",blurb:"Guess from clues",icon:"quiz",c:"#BFA6FF"}
+];
+const $=s=>document.querySelector(s);
+const el=(t,cls,txt)=>{const e=document.createElement(t);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
+
+/* ================= state ================= */
+let me=null;try{me=localStorage.getItem("bff-name")}catch(e){}
+if(!FRIENDS.some(f=>f.n===me))me=null;
+let db=null,room=null,dbMsg=false,roomOn=false;
+let messages=[];                 // {id,name,text,ts,kind,wpm,acc}
+let onlineNames=new Set();
+let currentGame="sketch";
+
+/* ================= header ================= */
+function renderFriends(){
+  const box=$("#friends");box.textContent="";
+  FRIENDS.forEach(f=>{
+    const on=onlineNames.has(f.n)||f.n===me;
+    const d=el("div","friend"+(on?"":" off")+(f.n===me?" me":""));
+    d.title=on?f.n+" is here":f.n+" is not here right now";
+    const av=el("span","av",f.n[0]);av.style.background=f.c;av.style.color="#2B1A55";
+    d.append(av,el("span","",f.n),el("span","dot"));
+    box.append(d);
+  });
+  $("#whoami").textContent=me?"Playing as "+me:"Pick your name";
+}
+function showPicker(){
+  const host=$("#overlayHost");host.textContent="";
+  const ov=el("div","overlay");const dlg=el("div","dialog");
+  dlg.append(el("h2","","Who are you?"),el("p","","Pick your name to join the BFF Chatting Room."));
+  const picks=el("div","picks");
+  FRIENDS.forEach(f=>{const b=el("button","pick",f.n);b.type="button";b.style.background=f.c;
+    b.onclick=()=>{me=f.n;try{localStorage.setItem("bff-name",me)}catch(e){}host.textContent="";announce();renderFriends();renderComposer();renderMessages()};
+    picks.append(b)});
+  dlg.append(picks);ov.append(dlg);host.append(ov);
+}
+$("#whoami").onclick=showPicker;
+
+/* ================= presence ================= */
+let net=null,presenceMap=new Map();
+function announce(){ if(net&&me) net.setPresence(me,{game:currentGame,seen:Date.now()}) }
+function computeOnline(){
+  const s=new Set(),now=Date.now();
+  presenceMap.forEach((p,n)=>{if(p&&typeof p.seen==="number"&&now-p.seen<50000&&FRIENDS.some(f=>f.n===n))s.add(n)});
+  if(me)s.add(me);
+  onlineNames=s;renderFriends();
+}
+
+/* ================= games rail ================= */
+function renderGames(){
+  const ul=$("#glist");ul.textContent="";
+  GAMES.forEach(g=>{
+    const li=el("li");const b=el("button","game");b.type="button";
+    if(g.id===currentGame)b.setAttribute("aria-current","true");
+    const gi=el("span","gi");gi.style.background=g.c;gi.innerHTML=ICON[g.icon];
+    const t=el("span");t.append(el("b","",g.name),el("small","",g.blurb));
+    b.append(gi,t);if(!g.live)b.append(el("span","soon","soon"));
+    b.onclick=()=>{currentGame=g.id;announce();renderGames();renderGame()};
+    li.append(b);ul.append(li);
+  });
+}
+/* ================= chat ================= */
+function fmtTime(ts){try{return new Date(ts).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}catch(e){return""}}
+function renderMessages(){
+  const feed=$("#feed");
+  const nearBottom=feed.scrollHeight-feed.scrollTop-feed.clientHeight<80;
+  feed.textContent="";
+  if(!messages.length){feed.append(el("div","empty","No messages yet. Say hi to your BFFs!"));return}
+  messages.forEach(m=>{
+    const mine=m.name===me;
+    const w=el("div","msg"+(mine?" me":""));
+    w.append(el("div","who",(mine?"You":m.name)+" · "+fmtTime(m.ts)));
+    const b=el("div","bubble",m.text);b.style.background=colorOf(m.name);w.append(b);
+    feed.append(w);
+  });
+  if(nearBottom||messages.length<3)feed.scrollTop=feed.scrollHeight;
+}
+function setBanner(t){const b=$("#banner");b.textContent="";if(t){b.append(el("div","banner",t))}}
+async function postMessage(text,extra){
+  if(!me||!text.trim())return;
+  const m=Object.assign({name:me,text:text.trim().slice(0,300),ts:Date.now(),kind:"typed"},extra||{});
+  if(db&&dbMsg){
+    try{await db.collection("messages").add(m);return}catch(e){setBanner("Could not send to the group, so this message is only on your screen.")}
+  }
+  m.id="local-"+m.ts;messages.push(m);renderMessages();
+}
+function renderComposer(){
+  const c=$("#composer");c.textContent="";
+  const row=el("div","row");
+  const inp=el("input","txt");inp.id="msgIn";inp.type="text";inp.maxLength=300;inp.placeholder=me?"Say something, "+me+"…":"Pick your name first";inp.autocomplete="off";
+  const send=el("button","btn pink","Send");send.type="button";
+  const go=()=>{const v=inp.value;if(!v.trim())return;inp.value="";postMessage(v)};
+  send.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()};
+  row.append(inp,send);c.append(row);
+}
+
+/* ================= games ================= */
+let sketch=null;
+function renderGame(){
+  const g=GAMES.find(x=>x.id===currentGame)||GAMES[0];
+  $("#gameTitle").textContent=g.name;
+  $("#gameNote").textContent=g.note||"";
+  const stage=$("#stage"),tools=$("#toolsHost");
+  stage.textContent="";tools.textContent="";
+  if(sketch){sketch.destroy();sketch=null}
+  if(g.id==="sketch"){sketch=makeSketch(stage,tools);return}
+  if(g.id==="cars"){sketch=makeRace(stage);return}
+  const ph=el("div","placeholder");
+  const bi=el("div","bigicon");bi.style.background=g.c;bi.innerHTML=ICON[g.icon];
+  ph.append(bi,el("h3","",g.name+" is coming soon!"),el("p","","Try the Sketchboard while we build it."));
+  const b=el("button","btn pink","Open Sketchboard");b.type="button";b.onclick=()=>{currentGame="sketch";announce();renderGames();renderGame()};
+  ph.append(b);stage.append(ph);
+}
+
+function makeSketch(stage,toolsHost){
+  const W=1000,H=700;
+  const COLORS=[["#FF5FA8","Pink"],["#FF8A3D","Orange"],["#FFD23F","Yellow"],["#7C4DFF","Purple"],["#1FAF65","Green"],["#2E8BFF","Blue"],["#2B1A55","Dark"],["#FFFFFF","Eraser"]];
+  const SIZES=[6,14,30];
+  let color=COLORS[0][0],size=SIZES[1];
+  const strokes=new Map();      // id -> stroke (saved)
+  const live=new Map();         // id -> stroke from other people, in progress
+  let cur=null,raf=0,lastEmit=0,unsub=null,offLive=null,clearArmed=false,alive=true;
+  const cv=el("canvas");cv.width=W;cv.height=H;cv.setAttribute("aria-label","Shared drawing board");
+  const ctx=cv.getContext("2d");
+  stage.append(cv);
+
+  function fit(){
+    const r=stage.getBoundingClientRect();
+    const aw=Math.max(120,r.width-24),ah=Math.max(120,r.height-24);
+    const s=Math.min(aw/W,ah/H);
+    cv.style.width=Math.floor(W*s)+"px";cv.style.height=Math.floor(H*s)+"px";
+  }
+  const ro=new ResizeObserver(fit);ro.observe(stage);fit();
+
+  function drawStroke(s){
+    const p=s.p;if(!p||p.length<2)return;
+    ctx.strokeStyle=s.c;ctx.fillStyle=s.c;ctx.lineWidth=s.w;ctx.lineCap="round";ctx.lineJoin="round";
+    if(p.length<4){ctx.beginPath();ctx.arc(p[0],p[1],s.w/2,0,Math.PI*2);ctx.fill();return}
+    ctx.beginPath();ctx.moveTo(p[0],p[1]);
+    for(let i=2;i<p.length-2;i+=2){
+      const mx=(p[i]+p[i+2])/2,my=(p[i+1]+p[i+3])/2;
+      ctx.quadraticCurveTo(p[i],p[i+1],mx,my);
+    }
+    ctx.lineTo(p[p.length-2],p[p.length-1]);ctx.stroke();
+  }
+  function redraw(){
+    raf=0;ctx.fillStyle="#fff";ctx.fillRect(0,0,W,H);
+    [...strokes.values()].sort((a,b)=>a.t-b.t).forEach(drawStroke);
+    live.forEach(drawStroke);
+    if(cur)drawStroke(cur);
+  }
+  const schedule=()=>{if(!raf&&alive)raf=requestAnimationFrame(redraw)};
+  schedule();
+
+  function pt(e){const r=cv.getBoundingClientRect();
+    return[Math.max(0,Math.min(W,Math.round((e.clientX-r.left)/r.width*W))),Math.max(0,Math.min(H,Math.round((e.clientY-r.top)/r.height*H)))]}
+  function newId(){return(me||"x")+"-"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+  function begin(x,y){cur={id:newId(),by:me||"?",c:color,w:size,p:[x,y],t:Date.now(),local:true}}
+  function commit(){
+    if(!cur)return;
+    const s=cur;cur=null;
+    if(room&&roomOn)room.emit("live",{id:s.id,end:true}).catch(()=>{});
+    strokes.set(s.id,s);schedule();
+    if(db){db.collection("strokes").doc(s.id).set({by:s.by||"",c:s.c,w:s.w,p:s.p,t:s.t}).catch(()=>{})}
+  }
+  cv.addEventListener("pointerdown",e=>{
+    if(!me){showPicker();return}
+    e.preventDefault();cv.setPointerCapture(e.pointerId);
+    const[x,y]=pt(e);begin(x,y);schedule();
+  });
+  cv.addEventListener("pointermove",e=>{
+    if(!cur)return;e.preventDefault();
+    const[x,y]=pt(e);const p=cur.p;
+    const dx=x-p[p.length-2],dy=y-p[p.length-1];
+    if(dx*dx+dy*dy<9)return;
+    p.push(x,y);
+    if(p.length>=700){const lx=x,ly=y;commit();begin(lx,ly)}
+    schedule();
+    const now=performance.now();
+    if(room&&roomOn&&cur&&now-lastEmit>70){lastEmit=now;room.emit("live",{id:cur.id,c:cur.c,w:cur.w,p:cur.p}).catch(()=>{})}
+  });
+  const up=e=>{if(!cur)return;commit()};
+  cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+
+  /* tools */
+  const bar=el("div","tools");
+  const cbtns=[];
+  COLORS.forEach(([c,name])=>{
+    const b=el("button","sw-c");b.type="button";b.style.background=c;b.title=name;b.setAttribute("aria-label",name);
+    b.setAttribute("aria-pressed",String(c===color));
+    b.onclick=()=>{color=c;cbtns.forEach(x=>x.setAttribute("aria-pressed",String(x===b)))};
+    cbtns.push(b);bar.append(b);
+  });
+  bar.append(el("span","sep"));
+  const sbtns=[];
+  SIZES.forEach((s,i)=>{
+    const b=el("button","size");b.type="button";b.title=["Thin","Medium","Thick"][i]+" brush";b.setAttribute("aria-label",b.title);
+    const d=el("i");d.style.width=d.style.height=(6+i*6)+"px";b.append(d);
+    b.setAttribute("aria-pressed",String(s===size));
+    b.onclick=()=>{size=s;sbtns.forEach(x=>x.setAttribute("aria-pressed",String(x===b)))};
+    sbtns.push(b);bar.append(b);
+  });
+  bar.append(el("span","sep"));
+  const undo=el("button","btn yellow","Undo");undo.type="button";
+  undo.onclick=()=>{
+    const mine=[...strokes.values()].filter(s=>s.by===me).sort((a,b)=>b.t-a.t)[0];
+    if(!mine)return;strokes.delete(mine.id);schedule();
+    if(db)db.collection("strokes").doc(mine.id).delete().catch(()=>{});
+  };
+  const clr=el("button","btn pink","Clear all");clr.type="button";
+  clr.onclick=()=>{
+    if(!clearArmed){clearArmed=true;clr.textContent="Clear for everyone?";setTimeout(()=>{clearArmed=false;clr.textContent="Clear all"},3000);return}
+    clearArmed=false;clr.textContent="Clear all";
+    const ids=[...strokes.keys()];strokes.clear();live.clear();schedule();
+    if(db)ids.forEach(id=>db.collection("strokes").doc(id).delete().catch(()=>{}));
+  };
+  bar.append(undo,clr);
+  toolsHost.append(bar);
+
+  /* sharing */
+  if(db){
+    try{
+      unsub=db.collection("strokes").orderBy("t","asc").limit(400).onSnapshot(snap=>{
+        const keep=new Map();
+        snap.docs.forEach(d=>{const x=d.data();if(x&&Array.isArray(x.p))keep.set(d.id,{id:d.id,by:x.by,c:x.c,w:x.w,p:x.p,t:x.t})});
+        strokes.forEach((s,id)=>{if(!keep.has(id)&&s.local&&Date.now()-s.t<5000)keep.set(id,s)});
+        strokes.clear();keep.forEach((v,k)=>strokes.set(k,v));
+        keep.forEach((v,k)=>live.delete(k));
+        schedule();
+      },()=>{});
+    }catch(e){}
+  }
+  if(room&&roomOn){
+    offLive=room.on("live",m=>{
+      if(m.isMe||!m.data)return;
+      const d=m.data;if(typeof d.id!=="string")return;
+      if(d.end){live.delete(d.id);schedule();return}
+      if(Array.isArray(d.p)&&d.p.length<1500&&typeof d.c==="string"&&/^#[0-9A-Fa-f]{6}$/.test(d.c)&&typeof d.w==="number"){
+        live.set(d.id,{id:d.id,c:d.c,w:Math.max(1,Math.min(60,d.w)),p:d.p.filter(n=>typeof n==="number"),t:Date.now()});
+        schedule();
+      }
+    });
+  }
+  return{destroy(){alive=false;if(raf)cancelAnimationFrame(raf);ro.disconnect();if(unsub)unsub();if(offLive)offLive()}};
+}
+
+function makeRace(stage){
+  const wrap=el("div","race");stage.append(wrap);
+  const hint=el("div","race-hint","Tap the big button or press Space as fast as you can!");
+  const lanesBox=el("div","lanes"),ctl=el("div","race-ctl");
+  wrap.append(hint,lanesBox,ctl);
+  const BOTS=[["Zippy","#FF8A3D"],["Turbo","#7C4DFF"],["Dash","#1FAF65"]];
+  const R=new Map(),laneEls=new Map();
+  let phase="lobby",raceId="",winner="",alive=true,botT=null,lastEmit=0,offRace=null;
+  const timers=[];
+  const seen=new Set();let claiming=false;
+  const colorFor=n=>{const b=BOTS.find(x=>x[0]===n);return b?b[1]:colorOf(n)};
+  function carSvg(c){
+    return '<svg viewBox="0 0 80 44" aria-hidden="true"><path d="M4 30v-8c0-3 2-5 5-5h10l8-10c1-2 3-3 5-3h16c2 0 4 1 5 3l6 10h7c3 0 5 2 5 5v8z" fill="'+c+'" stroke="#2B1A55" stroke-width="3" stroke-linejoin="round"/>'
+     +'<path d="M29 17l6-8h12l5 8z" fill="#CFF1FF" stroke="#2B1A55" stroke-width="2.5" stroke-linejoin="round"/>'
+     +'<circle cx="22" cy="32" r="7" fill="#2B1A55"/><circle cx="22" cy="32" r="3" fill="#FFD23F"/><circle cx="60" cy="32" r="7" fill="#2B1A55"/><circle cx="60" cy="32" r="3" fill="#FFD23F"/></svg>';
+  }
+  function addRacer(n){if(typeof n==="string"&&!R.has(n)){R.set(n,{pos:0});ensureLanes()}}
+  function ensureLanes(){
+    R.forEach((r,n)=>{
+      if(laneEls.has(n))return;
+      const lane=el("div","lane");
+      const nm=el("div","lname",n===me?"You":n);nm.style.color="var(--fg)";
+      const tr=el("div","track");const car=el("div","car");car.innerHTML=carSvg(colorFor(n));tr.append(car);
+      lane.append(nm,tr);lanesBox.append(lane);laneEls.set(n,car);
+    });
+  }
+  function setPos(n){const r=R.get(n),c=laneEls.get(n);if(r&&c)c.style.setProperty("--p",String(r.pos))}
+  function resetPos(){R.forEach((r,n)=>{r.pos=0;setPos(n)})}
+  function later(fn,ms){timers.push(setTimeout(()=>{if(alive)fn()},ms))}
+  function controls(){
+    ctl.textContent="";
+    if(phase==="lobby"){
+      const b=el("button","btn pink","Start race!");b.type="button";b.onclick=startRace;
+      const bots=el("button","btn purple","Add computer racers");bots.type="button";
+      bots.title="They only race on your screen";
+      bots.onclick=()=>{BOTS.forEach(x=>{if(!R.has(x[0]))R.set(x[0],{pos:0,bot:true})});ensureLanes();bots.disabled=true};
+      const row=el("div","row wrap");row.style.justifyContent="center";row.append(b,bots);
+      ctl.append(row,el("div","badge",R.size>1?"Racers: "+[...R.keys()].map(n=>n===me?"You":n).join(", "):"Waiting for friends to join. You can also race the computer."));
+    }else if(phase==="count"){
+      const c=el("div","count","");c.id="cnt";ctl.append(c);
+    }else if(phase==="go"){
+      const g=el("button","gobtn","GO! GO! GO!");g.type="button";g.onpointerdown=e=>{e.preventDefault();boost()};ctl.append(g);
+    }else{
+      ctl.append(el("div","win","🏁 "+(winner===me?"You win!":winner+" wins!")));
+      const again=el("button","btn pink","Race again");again.type="button";again.onclick=()=>{if(net)net.setControl({id:"",ts:Date.now(),winner:""});toLobby()};ctl.append(again);
+    }
+  }
+  let ctlT=null;function controlsSoon(){if(ctlT)return;ctlT=setTimeout(()=>{ctlT=null;if(alive&&phase==="lobby")controls()},300)}
+  function toLobby(){clearInterval(botT);phase="lobby";winner="";raceId="";resetPos();controls()}
+  function startRace(){
+    if(!me){showPicker();return}
+    addRacer(me);
+    const id=Date.now()+"-"+Math.random().toString(36).slice(2,7);
+    begin(id);if(net)net.setControl({id,ts:Date.now(),winner:""});
+  }
+  function begin(id){
+    if(!id||seen.has(id)||(phase!=="lobby"&&phase!=="done"))return;
+    seen.add(id);raceId=id;phase="count";winner="";resetPos();controls();
+    const cnt=()=>$("#cnt");
+    ["3","2","1","GO!"].forEach((t,i)=>later(()=>{
+      if(phase!=="count")return;
+      if(cnt())cnt().textContent=t;
+      if(t==="GO!")later(()=>{phase="go";controls();startBots()},350);
+    },i*800));
+  }
+  function startBots(){
+    clearInterval(botT);
+    const bots=[...R.entries()].filter(([n,r])=>r.bot);
+    if(!bots.length)return;
+    botT=setInterval(()=>{
+      bots.forEach(([n,r])=>{if(phase!=="go")return;r.pos=Math.min(100,r.pos+0.5+Math.random()*1.3);setPos(n);checkWin(n)});
+    },120);
+  }
+  function finish(n){
+    if(phase!=="go")return;
+    phase="done";winner=n;clearInterval(botT);controls();
+    if(n===me)postMessage("🏁 I won the car race!");
+  }
+  function checkWin(n){
+    const r=R.get(n);
+    if(phase!=="go"||!r||r.pos<100||claiming)return;
+    if(!net){finish(n);return}
+    claiming=true;
+    net.claim(raceId,n).catch(()=>{finish(n)}).then(()=>{claiming=false});
+  }
+  function boost(){
+    if(phase!=="go"||!me)return;
+    addRacer(me);const r=R.get(me);if(r.pos>=100)return;
+    r.pos=Math.min(100,r.pos+2);setPos(me);
+    const now=performance.now();
+    if(r.pos>=100||now-lastEmit>180){lastEmit=now;if(net)net.setPlayer(me,{pos:r.pos,rid:raceId,ts:Date.now()})}
+    checkWin(me);
+  }
+  const onKey=e=>{
+    if(e.code!=="Space")return;
+    const t=e.target&&e.target.tagName;if(t==="INPUT"||t==="TEXTAREA")return;
+    e.preventDefault();if(!e.repeat)boost();
+  };
+  window.addEventListener("keydown",onKey);
+  if(net){
+    if(me)net.setPlayer(me,{pos:0,rid:"",ts:Date.now()});
+    offRace=net.onRace(docs=>{
+      if(!alive)return;
+      const now=Date.now();
+      docs.forEach(d=>{
+        const id=d.id,x=d.data;if(!x)return;
+        if(id==="_control"){
+          if(typeof x.id==="string"&&x.id&&typeof x.ts==="number"&&now-x.ts<8000&&!seen.has(x.id)){
+            if(me)addRacer(me);
+            begin(x.id);
+          }
+          if(typeof x.winner==="string"&&x.winner&&x.id===raceId&&FRIENDS.some(f=>f.n===x.winner))finish(x.winner);
+          if(x.id===""&&phase==="done")toLobby();
+        }else if(FRIENDS.some(f=>f.n===id)&&typeof x.ts==="number"&&now-x.ts<600000){
+          addRacer(id);
+          if(id!==me&&phase==="go"&&x.rid===raceId&&typeof x.pos==="number"){R.get(id).pos=Math.max(0,Math.min(100,x.pos));setPos(id)}
+          else if(phase==="lobby"&&id!==me){controlsSoon()}
+        }
+      });
+    });
+  }
+  if(me)addRacer(me);
+  controls();
+  return{destroy(){alive=false;clearInterval(botT);timers.forEach(clearTimeout);clearTimeout(ctlT);window.removeEventListener("keydown",onKey);if(offRace)offRace()}};
+}
+
+/* ================= start ================= */
+renderFriends();renderGames();renderGame();renderComposer();renderMessages();
+$("#chatStatus").textContent="connecting…";
+
+(async function connect(){
+  const status=$("#chatStatus");
+  const fail=t=>{status.textContent="not connected";setBanner(t)};
+  let auth,fs;
+  try{
+    const app=initializeApp(firebaseConfig);auth=getAuth(app);fs=getFirestore(app);
+    await auth.authStateReady();
+    if(!auth.currentUser)await signInAnonymously(auth);
+  }catch(e){fail("Can't reach the chat right now. Check the internet and refresh the page.");return}
+  const uid=auth.currentUser.uid,mref=doc(fs,"members",uid);
+  let ok=false;
+  try{ok=(await getDoc(mref)).exists()}catch(e){ok=false}
+  if(!ok)ok=await askPassword(async pw=>{await setDoc(mref,{code:pw,ts:Date.now()})});
+  if(!ok)return;
+  $("#overlayHost").textContent="";
+  start(fs);
+})();
+
+function askPassword(tryIt){
+  return new Promise(res=>{
+    const host=$("#overlayHost");host.textContent="";
+    const ov=el("div","overlay");const dlg=el("div","dialog");
+    dlg.append(el("h2","","Secret password"),el("p","","Type the room password to come in."));
+    const inp=el("input","txt");inp.type="password";inp.autocomplete="off";inp.placeholder="Password";inp.style.textAlign="center";
+    const msg=el("p","","");msg.style.minHeight="20px";msg.style.margin="8px 0";
+    const go=el("button","btn pink","Come in!");go.type="button";
+    const submit=async()=>{
+      const v=inp.value.trim();if(!v)return;
+      go.disabled=true;msg.textContent="";
+      try{await tryIt(v);res(true)}
+      catch(e){go.disabled=false;msg.textContent=(e&&e.code==="permission-denied")?"That's not the password. Try again!":"Could not check it. Check the internet and try again."}
+    };
+    go.onclick=submit;inp.onkeydown=e=>{if(e.key==="Enter")submit()};
+    dlg.append(inp,msg,go);ov.append(dlg);host.append(ov);setTimeout(()=>inp.focus(),0);
+  });
+}
+
+function start(fs){
+  const mapSnap=snap=>({docs:snap.docs.map(d=>({id:d.id,data:()=>d.data()}))});
+  const mk=q=>({
+    orderBy:(f,d)=>mk(query(q,fbOrderBy(f,d))),
+    limit:n=>mk(query(q,fbLimit(n))),
+    onSnapshot:(cb,err)=>onSnapshot(q,s=>cb(mapSnap(s)),err)
+  });
+  db={collection(name){
+    const c=collection(fs,name);
+    return Object.assign(mk(c),{
+      add:o=>addDoc(c,o),
+      doc:id=>({set:o=>setDoc(doc(fs,name,id),o),delete:()=>deleteDoc(doc(fs,name,id))})
+    });
+  }};
+  const ign=()=>{};
+  net={
+    setPresence:(n,o)=>setDoc(doc(fs,"presence",n),o).catch(ign),
+    setPlayer:(n,o)=>setDoc(doc(fs,"race",n),o).catch(ign),
+    setControl:o=>setDoc(doc(fs,"race","_control"),o).catch(ign),
+    claim:(rid,n)=>runTransaction(fs,async tx=>{
+      const r=doc(fs,"race","_control"),sn=await tx.get(r);
+      if(sn.exists()&&sn.data().id===rid&&!sn.data().winner)tx.update(r,{winner:n});
+    }),
+    onRace:cb=>onSnapshot(collection(fs,"race"),s=>cb(s.docs.map(d=>({id:d.id,data:d.data()}))),ign)
+  };
+  onSnapshot(collection(fs,"presence"),s=>{presenceMap=new Map(s.docs.map(d=>[d.id,d.data()]));computeOnline()},ign);
+  setInterval(()=>{announce();computeOnline()},20000);
+  window.addEventListener("pagehide",()=>{if(me)deleteDoc(doc(fs,"presence",me)).catch(ign)});
+  db.collection("messages").orderBy("ts","desc").limit(100).onSnapshot(snap=>{
+    dbMsg=true;
+    messages=snap.docs.map(d=>{const x=d.data()||{};return{id:d.id,name:String(x.name||""),text:String(x.text||""),ts:Number(x.ts)||0}})
+      .filter(m=>FRIENDS.some(f=>f.n===m.name)).reverse();
+    $("#chatStatus").textContent="shared chat";setBanner("");renderMessages();
+  },()=>{dbMsg=false;$("#chatStatus").textContent="not connected";setBanner("The shared chat isn't connected, so messages stay on this screen.")});
+  announce();computeOnline();
+  renderGame();
+  if(!me)showPicker();
+}
+})();
+</script>
+</body></html>
