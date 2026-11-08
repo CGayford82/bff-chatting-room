@@ -146,6 +146,31 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(190px,220px) 
 .count{font:800 56px/1 var(--display);color:var(--purple)}
 .win{font:800 24px/1.1 var(--display);text-align:center;background:var(--yellow);color:var(--ink-fixed);border:3px solid var(--line);border-radius:16px;padding:8px 14px}
 
+/* ---------- more games ---------- */
+.gm{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:6px;overflow:auto;text-align:center}
+.gm .txt{flex:none;width:min(280px,100%)}
+.pill{background:var(--panel2);border:3px solid var(--line);border-radius:999px;padding:4px 14px;font:800 15px var(--display)}
+.dpad{display:grid;grid-template-columns:repeat(3,52px);gap:6px}
+.dpad .btn{padding:8px 0;font-size:18px}
+.tiles{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tile{width:42px;height:48px;display:grid;place-items:center;background:var(--yellow);color:var(--ink-fixed);border:3px solid var(--line);border-radius:12px;box-shadow:2px 2px 0 var(--line);font:800 24px/1 var(--display);text-transform:uppercase}
+.tile.blank{background:var(--panel2)}
+.hangbox{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px}
+.hang{width:140px;height:160px}
+.hangright{display:grid;gap:8px;justify-items:center;max-width:320px}
+.letters{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;max-width:380px}
+.lt{width:34px;height:36px;border:3px solid var(--line);border-radius:10px;background:var(--panel);font:800 15px var(--display);box-shadow:2px 2px 0 var(--line);padding:0}
+.lt:disabled{cursor:default;box-shadow:none;opacity:.8}
+.lt.hit{background:#8EE6B2;color:var(--ink-fixed)}.lt.miss{background:#FFB5BE;color:var(--ink-fixed)}
+.mgrid{display:grid;grid-template-columns:repeat(4,minmax(54px,84px));gap:8px}
+.mcard{aspect-ratio:1;border:3px solid var(--line);border-radius:16px;background:var(--purple);color:#fff;font:800 34px/1 var(--display);box-shadow:3px 3px 0 var(--line);padding:0}
+.mcard.up{background:var(--panel2);color:var(--fg)}
+.mcard.done{background:#8EE6B2;color:var(--ink-fixed)}
+.bigemoji{font-size:clamp(40px,7vw,64px);line-height:1.1}
+.opts{display:grid;gap:8px;width:min(380px,100%)}
+.opt{text-align:center;padding:10px 12px;font-size:15px}
+.opt.right{background:#8EE6B2}.opt.wrong{background:#FFB5BE}
+
 /* ---------- game area ---------- */
 .stage{flex:1;min-height:200px;display:grid;place-items:center;padding:10px;position:relative;overflow:hidden}
 canvas{border:3px solid var(--line);border-radius:14px;background:var(--paper);touch-action:none;cursor:crosshair;box-shadow:3px 3px 0 var(--line);display:block}
@@ -261,6 +286,7 @@ const SENTENCES=[
 const ICON={
  brush:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c3 0 5-1 5-4 0-1.5-1-2.500-2.500-2.500S4 14.500 4 16.500V20z"/><path d="M9 14.500 19 4.500a2.100 2.100 0 0 1 3 3L12 17.500"/></svg>',
  mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+ snake:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20h9a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h9"/><circle cx="19" cy="4" r="1" fill="currentColor"/></svg>',
  car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h14l2 5v3z"/><circle cx="7.500" cy="16.500" r="2" fill="currentColor"/><circle cx="16.500" cy="16.500" r="2" fill="currentColor"/></svg>',
  keys:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.500" y="6" width="19" height="12" rx="3"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
  abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 7 7l4 11M4.500 14h5M14 6v12h3.500a3 3 0 0 0 0-6H14"/></svg>',
@@ -270,11 +296,7 @@ const ICON={
 };
 const GAMES=[
  {id:"sketch",name:"Sketchboard",blurb:"Draw together",icon:"brush",c:"#FF5FA8",live:true,note:"everyone sees what you draw"},
- {id:"cars",name:"Typing Race",blurb:"Type to drive your car",icon:"car",c:"#FF8A3D",live:true,note:"type fast to win"},
- {id:"scramble",name:"Word Scramble",blurb:"Unjumble words",icon:"abc",c:"#C9B3FF"},
- {id:"hangman",name:"Hangman",blurb:"Guess the word",icon:"hang",c:"#FF9CCB"},
- {id:"memory",name:"Memory Match",blurb:"Flip the cards",icon:"cards",c:"#FFB27A"},
- {id:"trivia",name:"Emoji Trivia",blurb:"Guess from clues",icon:"quiz",c:"#BFA6FF"}
+ {id:"cars",name:"Car Race",blurb:"Cartoon cars",icon:"car",c:"#FF8A3D",live:true,note:"tap or press Space to zoom"}
 ];
 const $=s=>document.querySelector(s);
 const el=(t,cls,txt)=>{const e=document.createElement(t);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
@@ -717,14 +739,14 @@ function makeSketch(stage,toolsHost){
 
 function makeRace(stage){
   const wrap=el("div","race");stage.append(wrap);
-  const hint=el("div","race-hint","Type the sentence as fast as you can. Your car drives as you type!");
+  const hint=el("div","race-hint","Tap the big button or press Space as fast as you can!");
   const lanesBox=el("div","lanes"),ctl=el("div","race-ctl");
   wrap.append(hint,lanesBox,ctl);
   const BOTS=[["Zippy","#FF8A3D"],["Turbo","#7C4DFF"],["Dash","#1FAF65"]];
   const R=new Map(),laneEls=new Map();
   let phase="lobby",raceId="",winner="",alive=true,botT=null,lastEmit=0,offRace=null;
   const timers=[];
-  const seen=new Set();let claiming=false,text="",typed="",lastEmit2=0;
+  const seen=new Set();let claiming=false;
   const colorFor=n=>{const b=BOTS.find(x=>x[0]===n);return b?b[1]:colorOf(n)};
   function carSvg(c){
     return '<svg viewBox="0 0 80 44" aria-hidden="true"><path d="M4 30v-8c0-3 2-5 5-5h10l8-10c1-2 3-3 5-3h16c2 0 4 1 5 3l6 10h7c3 0 5 2 5 5v8z" fill="'+c+'" stroke="#2B1A55" stroke-width="3" stroke-linejoin="round"/>'
@@ -756,13 +778,7 @@ function makeRace(stage){
     }else if(phase==="count"){
       const c=el("div","count","");c.id="cnt";ctl.append(c);
     }else if(phase==="go"){
-      const box=el("div","sentence race-s");box.id="rs";
-      const inp=el("input","hidden-in");inp.id="rin";inp.type="text";inp.autocomplete="off";inp.autocapitalize="off";inp.spellcheck=false;
-      inp.setAttribute("aria-label","Type the sentence");
-      inp.addEventListener("input",onRaceInput);inp.addEventListener("paste",e=>e.preventDefault());
-      box.onclick=()=>inp.focus();
-      const oops=el("div","hint");oops.id="roops";
-      ctl.append(box,inp,oops);typed="";paintRace();setTimeout(()=>inp.focus(),0);
+      const g=el("button","gobtn","GO! GO! GO!");g.type="button";g.onpointerdown=e=>{e.preventDefault();boost()};ctl.append(g);
     }else{
       ctl.append(el("div","win","🏁 "+(winner===me?"You win!":winner+" wins!")));
       const again=el("button","btn pink","Race again");again.type="button";again.onclick=()=>{if(net)net.setControl({id:"",ts:Date.now(),winner:""});toLobby()};ctl.append(again);
@@ -774,12 +790,11 @@ function makeRace(stage){
     if(!me){showPicker();return}
     addRacer(me);
     const id=Date.now()+"-"+Math.random().toString(36).slice(2,7);
-    const pool=SENTENCES.filter(t=>t.length<=58),t=pool[Math.floor(Math.random()*pool.length)];
-    begin(id,t);if(net)net.setControl({id,ts:Date.now(),winner:"",text:t});
+    begin(id);if(net)net.setControl({id,ts:Date.now(),winner:""});
   }
-  function begin(id,t){
+  function begin(id){
     if(!id||seen.has(id)||(phase!=="lobby"&&phase!=="done"))return;
-    seen.add(id);raceId=id;text=(typeof t==="string"&&t.length>0&&t.length<=120)?t:SENTENCES[0];typed="";phase="count";winner="";resetPos();controls();
+    seen.add(id);raceId=id;phase="count";winner="";resetPos();controls();
     const cnt=()=>$("#cnt");
     ["3","2","1","GO!"].forEach((t,i)=>later(()=>{
       if(phase!=="count")return;
@@ -789,16 +804,16 @@ function makeRace(stage){
   }
   function startBots(){
     clearInterval(botT);
-    const bots=[...R.entries()].filter(([n,r])=>r.bot);bots.forEach(([n,r])=>{r.speed=0.35+Math.random()*0.5});
+    const bots=[...R.entries()].filter(([n,r])=>r.bot);
     if(!bots.length)return;
     botT=setInterval(()=>{
-      bots.forEach(([n,r])=>{if(phase!=="go")return;r.pos=Math.min(100,r.pos+r.speed*(0.7+Math.random()*0.6));setPos(n);checkWin(n)});
+      bots.forEach(([n,r])=>{if(phase!=="go")return;r.pos=Math.min(100,r.pos+0.5+Math.random()*1.3);setPos(n);checkWin(n)});
     },120);
   }
   function finish(n){
     if(phase!=="go")return;
     phase="done";winner=n;clearInterval(botT);controls();
-    if(n===me)postMessage("🏁 I won the typing race!");
+    if(n===me)postMessage("🏁 I won the car race!");
   }
   function checkWin(n){
     const r=R.get(n);
@@ -807,31 +822,20 @@ function makeRace(stage){
     claiming=true;
     net.claim(raceId,n).catch(()=>{finish(n)}).then(()=>{claiming=false});
   }
-  function firstWrongR(){for(let i=0;i<typed.length;i++){if(typed[i]!==text[i])return i}return-1}
-  function paintRace(){
-    const b=$("#rs");if(!b)return;b.textContent="";
-    const fw=firstWrongR();
-    for(let i=0;i<text.length;i++){
-      const sp=el("span","ch",text[i]);
-      if(i<typed.length)sp.classList.add(typed[i]===text[i]?"ok":"bad");
-      else if(i===typed.length)sp.classList.add("cur");
-      else sp.classList.add("todo");
-      b.append(sp);
-    }
-    const o=$("#roops");if(o)o.textContent=fw!==-1?"Oops! Press Backspace and fix it.":"";
-  }
-  function onRaceInput(e){
+  function boost(){
     if(phase!=="go"||!me)return;
-    const inp=e.target;let v=inp.value;if(v.length>text.length)v=v.slice(0,text.length);
-    typed=v;inp.value=v;
-    addRacer(me);const r=R.get(me);
-    const fw=firstWrongR(),good=fw===-1?v.length:fw;
-    r.pos=Math.min(100,good/text.length*100);setPos(me);
-    paintRace();
+    addRacer(me);const r=R.get(me);if(r.pos>=100)return;
+    r.pos=Math.min(100,r.pos+2);setPos(me);
     const now=performance.now();
-    if(r.pos>=100||now-lastEmit>180){lastEmit=now;if(net)net.setPlayer(me,{pos:Math.round(r.pos*10)/10,rid:raceId,ts:Date.now()})}
-    if(v===text)checkWin(me);
+    if(r.pos>=100||now-lastEmit>180){lastEmit=now;if(net)net.setPlayer(me,{pos:r.pos,rid:raceId,ts:Date.now()})}
+    checkWin(me);
   }
+  const onKey=e=>{
+    if(e.code!=="Space")return;
+    const t=e.target&&e.target.tagName;if(t==="INPUT"||t==="TEXTAREA")return;
+    e.preventDefault();if(!e.repeat)boost();
+  };
+  window.addEventListener("keydown",onKey);
   if(net){
     if(me)net.setPlayer(me,{pos:0,rid:"",ts:Date.now()});
     offRace=net.onRace(docs=>{
@@ -842,7 +846,7 @@ function makeRace(stage){
         if(id==="_control"){
           if(typeof x.id==="string"&&x.id&&typeof x.ts==="number"&&now-x.ts<8000&&!seen.has(x.id)){
             if(me)addRacer(me);
-            begin(x.id,x.text);
+            begin(x.id);
           }
           if(typeof x.winner==="string"&&x.winner&&x.id===raceId&&FRIENDS.some(f=>f.n===x.winner))finish(x.winner);
           if(x.id===""&&phase==="done")toLobby();
@@ -856,7 +860,7 @@ function makeRace(stage){
   }
   if(me)addRacer(me);
   controls();
-  return{destroy(){alive=false;clearInterval(botT);timers.forEach(clearTimeout);clearTimeout(ctlT);if(offRace)offRace()}};
+  return{destroy(){alive=false;clearInterval(botT);timers.forEach(clearTimeout);clearTimeout(ctlT);window.removeEventListener("keydown",onKey);if(offRace)offRace()}};
 }
 
 /* ================= start ================= */
