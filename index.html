@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>BFF Chatting Room</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;800&display=swap">
 <style>
@@ -42,6 +42,35 @@ header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--
 .friend.off{filter:grayscale(1);opacity:.5}
 .friend.off .dot{background:#9a9a9a}
 .friend.me{box-shadow:0 0 0 3px var(--yellow)}
+.toolrow{display:flex;align-items:center;gap:8px;padding:0 6px 2px}
+.toolrow .typing{padding:0;flex:1}
+.gifbtn{padding:5px 12px;font-size:13px}
+.gifpanel{border:3px solid var(--line);border-radius:16px;background:var(--panel2);margin:0 6px 6px;padding:8px;display:grid;gap:8px;max-height:46%;overflow:hidden;grid-template-rows:auto 1fr auto}
+.gifpanel[hidden]{display:none}
+.gifgrid{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;align-content:start}
+.gifgrid button{padding:0;border:3px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;aspect-ratio:1;line-height:0}
+.gifgrid img{width:100%;height:100%;object-fit:cover}
+.emojipanel{grid-template-rows:auto 1fr;max-height:40%}
+.emtabs{display:flex;gap:6px;flex-wrap:wrap}
+.emtabs button{padding:3px 10px;font-size:18px;border:3px solid var(--line);border-radius:12px;background:var(--panel)}
+.emtabs button[aria-pressed="true"]{background:var(--yellow)}
+.emgrid{overflow:auto;display:flex;flex-wrap:wrap;gap:2px;align-content:flex-start}
+.emgrid button{border:0;background:transparent;font-size:26px;line-height:1;padding:4px 5px;border-radius:10px}
+.emgrid button:hover,.emgrid button:focus-visible{background:var(--yellow)}
+.emojibtn{padding:6px 12px;font-size:18px}
+.gifnote{font:700 11px var(--body);color:var(--fg-soft);text-align:center}
+.gifimg{display:block;max-width:min(240px,100%);border:3px solid var(--line);border-radius:16px;box-shadow:2px 2px 0 var(--line);background:#fff}
+.typing{min-height:20px;padding:0 6px 2px;font:700 12.5px var(--body);color:var(--fg-soft)}
+.typing .d{display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin:0 1px;animation:tdot 1s infinite ease-in-out}
+.typing .d:nth-child(3){animation-delay:.15s}.typing .d:nth-child(4){animation-delay:.3s}
+@keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.typing .d{animation:none}}
+.friend .nm{display:grid;gap:1px;line-height:1.05}
+.friend .where{font:700 10.5px/1 var(--body);color:var(--fg-soft);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.game .here-av{display:flex;gap:3px;margin-top:3px}
+.game .here-av i{font-style:normal;width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:800 10px/1 var(--display);color:#2B1A55}
+.here{display:flex;gap:4px;align-items:center;margin-left:auto;font:700 12px var(--body);color:var(--fg-soft)}
+.here i{font-style:normal;width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:800 11px/1 var(--display);color:#2B1A55}
 .whoami{background:var(--yellow);border:3px solid var(--line);border-radius:999px;padding:5px 14px;font:700 14px var(--display);box-shadow:2px 2px 0 var(--line);color:var(--ink-fixed)}
 .whoami:active{transform:translate(2px,2px);box-shadow:none}
 
@@ -237,11 +266,14 @@ canvas{border:3px solid var(--line);border-radius:14px;background:var(--paper);t
       <div class="card-head"><h2>Chat</h2><span class="badge" id="chatStatus"></span></div>
       <div id="banner"></div>
       <div class="feed" id="feed" aria-live="polite"></div>
+      <div class="gifpanel" id="gifPanel" hidden></div>
+      <div class="gifpanel emojipanel" id="emojiPanel" hidden></div>
+      <div class="toolrow"><button class="btn yellow gifbtn" id="gifBtn" type="button" aria-expanded="false">🎞️ GIFs &amp; memes</button><div class="typing" id="typingNote" aria-live="polite"></div></div>
       <div class="composer" id="composer"></div>
     </section>
 
     <section class="card gamecard" aria-label="Game area">
-      <div class="card-head"><h2 id="gameTitle">Game area</h2><span class="badge" id="gameNote"></span></div>
+      <div class="card-head"><h2 id="gameTitle">Game area</h2><span class="badge" id="gameNote"></span><span class="here" id="gameHere"></span></div>
       <div class="stage" id="stage"></div>
       <div id="toolsHost"></div>
     </section>
@@ -315,6 +347,19 @@ let onlineNames=new Set();
 let currentGame="sketch",practiceOn=false;
 
 /* ================= header ================= */
+function gameOf(n){
+  if(n===me)return currentGame;
+  const p=presenceMap.get(n);
+  return p&&typeof p.seen==="number"&&Date.now()-p.seen<50000?p.game:"";
+}
+function whoIn(gid){return FRIENDS.filter(f=>(f.n===me||onlineNames.has(f.n))&&gameOf(f.n)===gid)}
+function renderHere(){
+  const h=$("#gameHere");if(!h)return;h.textContent="";
+  const list=whoIn(currentGame);
+  if(!list.length)return;
+  h.append(el("span","","Here now:"));
+  list.forEach(f=>{const i=el("i","",f.n[0]);i.style.background=f.c;i.title=f.n;h.append(i)});
+}
 function renderFriends(){
   const box=$("#friends");box.textContent="";
   FRIENDS.forEach(f=>{
@@ -322,10 +367,13 @@ function renderFriends(){
     const d=el("div","friend"+(on?"":" off")+(f.n===me?" me":""));
     d.title=on?f.n+" is here":f.n+" is not here right now";
     const av=el("span","av",f.n[0]);av.style.background=f.c;av.style.color="#2B1A55";
-    d.append(av,el("span","",f.n),el("span","dot"));
+    const nm=el("span","nm");nm.append(el("span","",f.n));
+    if(on){const g=GAMES.find(x=>x.id===gameOf(f.n));if(g)nm.append(el("span","where",g.name))}
+    d.append(av,nm,el("span","dot"));
     box.append(d);
   });
   $("#whoami").textContent=me?"Playing as "+me:"Pick your name";
+  renderHere();
 }
 function showPicker(){
   const host=$("#overlayHost");host.textContent="";
@@ -341,12 +389,23 @@ $("#whoami").onclick=showPicker;
 
 /* ================= presence ================= */
 let net=null,presenceMap=new Map();
-function announce(){ if(net&&me) net.setPresence(me,{game:currentGame,seen:Date.now()}) }
+function announce(typing){ if(net&&me){const o={game:currentGame,seen:Date.now()};if(typing)o.typing=Date.now();net.setPresence(me,o)} }
+let lastTypingSent=0;
+function sayTyping(){const now=Date.now();if(now-lastTypingSent<2500)return;lastTypingSent=now;announce(true)}
+function renderTyping(){
+  const box=$("#typingNote");if(!box)return;
+  const now=Date.now();
+  const names=FRIENDS.map(f=>f.n).filter(n=>{if(n===me)return false;const p=presenceMap.get(n);return p&&typeof p.typing==="number"&&now-p.typing<4500&&typeof p.seen==="number"&&now-p.seen<50000});
+  box.textContent="";
+  if(!names.length)return;
+  const label=names.length===1?names[0]+" is typing":names.length===2?names[0]+" and "+names[1]+" are typing":"Several friends are typing";
+  box.append(el("span","",label),el("span","d"),el("span","d"),el("span","d"));
+}
 function computeOnline(){
   const s=new Set(),now=Date.now();
   presenceMap.forEach((p,n)=>{if(p&&typeof p.seen==="number"&&now-p.seen<50000&&FRIENDS.some(f=>f.n===n))s.add(n)});
   if(me)s.add(me);
-  onlineNames=s;renderFriends();
+  onlineNames=s;renderFriends();renderGames();renderTyping();
 }
 
 /* ================= games rail ================= */
@@ -357,6 +416,8 @@ function renderGames(){
     if(g.id===currentGame)b.setAttribute("aria-current","true");
     const gi=el("span","gi");gi.style.background=g.c;gi.innerHTML=ICON[g.icon];
     const t=el("span");t.append(el("b","",g.name),el("small","",g.blurb));
+    const pals=whoIn(g.id);
+    if(pals.length){const row=el("span","here-av");pals.forEach(f=>{const i=el("i","",f.n[0]);i.style.background=f.c;i.title=f.n+" is here";row.append(i)});t.append(row)}
     b.append(gi,t);if(!g.live)b.append(el("span","soon","soon"));
     b.onclick=()=>{currentGame=g.id;announce();renderGames();renderGame()};
     li.append(b);ul.append(li);
@@ -380,7 +441,9 @@ function renderMessages(){
     const mine=m.name===me;
     const w=el("div","msg"+(mine?" me":""));
     w.append(el("div","who",(mine?"You":m.name)+" · "+fmtTime(m.ts)));
-    const b=el("div","bubble",m.text);b.style.background=colorOf(m.name);w.append(b);
+    if(m.gif&&GIF_OK.test(m.gif)){
+      const im=document.createElement("img");im.className="gifimg";im.src=m.gif;im.alt=m.text||"GIF";im.loading="lazy";w.append(im);
+    }else{const b=el("div","bubble",m.text);b.style.background=colorOf(m.name);w.append(b)}
     if(m.kind==="practice"&&m.wpm)w.append(el("div","badge","typed at "+m.wpm+" words a minute"));
     feed.append(w);
   });
@@ -395,15 +458,30 @@ async function postMessage(text,extra){
   }
   m.id="local-"+m.ts;messages.push(m);renderMessages();
 }
+const FIX={"teh":"the","hte":"the","adn":"and","nad":"and","taht":"that","thier":"their","recieve":"receive","becuase":"because","becasue":"because","beacuse":"because","definately":"definitely","definitly":"definitely","seperate":"separate","wierd":"weird","freind":"friend","freinds":"friends","frend":"friend","frends":"friends","wich":"which","whihc":"which","wiht":"with","waht":"what","whta":"what","jsut":"just","dont":"don't","cant":"can't","wont":"won't","didnt":"didn't","doesnt":"doesn't","isnt":"isn't","wasnt":"wasn't","couldnt":"couldn't","shouldnt":"shouldn't","wouldnt":"wouldn't","havent":"haven't","hasnt":"hasn't","arent":"aren't","werent":"weren't","im":"I'm","ive":"I've","youre":"you're","theyre":"they're","thats":"that's","whats":"what's","alot":"a lot","tomorow":"tomorrow","tommorow":"tomorrow","tomorrrow":"tomorrow","untill":"until","realy":"really","reallly":"really","coudl":"could","woudl":"would","shoudl":"should","peple":"people","poeple":"people","pepole":"people","abotu":"about","aobut":"about","thnaks":"thanks","thankyou":"thank you","gerat":"great","scool":"school","shcool":"school","schol":"school","tonigt":"tonight","tonihgt":"tonight","liek":"like","lkie":"like","ahve":"have","hvae":"have","haev":"have","wnat":"want","yuo":"you","yoru":"your","beleive":"believe","acheive":"achieve","truely":"truly","intresting":"interesting","interesing":"interesting","diffrent":"different","diferent":"different","somthing":"something","everthing":"everything","everyting":"everything","embarass":"embarrass","neccessary":"necessary","necesary":"necessary","occured":"occurred","adress":"address","buisness":"business","bussiness":"business","comming":"coming","writting":"writing","finaly":"finally","gaurd":"guard","happend":"happened","libary":"library","reccomend":"recommend","restaraunt":"restaurant","rythm":"rhythm","succesful":"successful","suprise":"surprise","calender":"calendar","vegatable":"vegetable","wanan":"wanna","pizzza":"pizza","sleepvoer":"sleepover","slepover":"sleepover","sleepove":"sleepover","birthay":"birthday","bithday":"birthday","brithday":"birthday","chocalate":"chocolate","choclate":"chocolate"};
+function autoFix(inp,e){
+  const ch=e&&e.data;if(!ch||!/^[ .,!?;:]$/.test(ch))return;
+  const v=inp.value,pos=inp.selectionStart;
+  const before=v.slice(0,pos-1),m=before.match(/([A-Za-z']+)$/);
+  if(!m)return;
+  const w=m[1],lw=w.toLowerCase();let fix=w==="i"?"I":FIX[lw];
+  if(!fix||fix===w)return;
+  if(w!=="i"&&w[0]!==w[0].toLowerCase()&&fix[0]!=="I")fix=fix[0].toUpperCase()+fix.slice(1);
+  const start=before.length-w.length;
+  inp.value=before.slice(0,start)+fix+v.slice(pos-1);
+  const np=start+fix.length+1;inp.setSelectionRange(np,np);
+}
 function renderComposer(){
   const c=$("#composer");c.textContent="";
+  if(window.__emojiClose)window.__emojiClose();
   if(practiceOn){buildPractice(c);return}
   const row=el("div","row");
-  const inp=el("input","txt");inp.id="msgIn";inp.type="text";inp.maxLength=300;inp.placeholder=me?"Say something, "+me+"…":"Pick your name first";inp.autocomplete="off";
+  const inp=el("input","txt");inp.id="msgIn";inp.type="text";inp.maxLength=300;inp.placeholder=me?"Say something, "+me+"…":"Pick your name first";inp.autocomplete="off";inp.spellcheck=true;inp.setAttribute("autocorrect","on");inp.setAttribute("autocapitalize","sentences");inp.lang="en-CA";inp.addEventListener("input",e=>{autoFix(inp,e);if(inp.value.trim())sayTyping()});
   const send=el("button","btn pink","Send");send.type="button";
-  const go=()=>{const v=inp.value;if(!v.trim())return;inp.value="";postMessage(v)};
+  const go=()=>{let v=inp.value.trim();if(!v)return;v=v.charAt(0).toUpperCase()+v.slice(1);inp.value="";lastTypingSent=0;announce();postMessage(v)};
   send.onclick=go;inp.onkeydown=e=>{if(e.key==="Enter")go()};
-  row.append(inp,send);c.append(row);
+  const em=el("button","btn yellow emojibtn","😊");em.type="button";em.title="Emojis";em.setAttribute("aria-label","Pick an emoji");em.onclick=()=>window.__emojiToggle();
+  row.append(inp,em,send);c.append(row);
 }
 
 /* ================= typing practice ================= */
@@ -591,6 +669,82 @@ function finishSentence(){
   const nb=el("button","btn pink","Next sentence");nb.type="button";nb.onclick=()=>{P.saying=false;P.target="";P.typed="";P.done=false;P.result=null;P.note="";renderPractice()};
   box.append(nb);r.append(box);
 }
+
+
+
+/* ================= emoji picker ================= */
+const EMOJI_CATS=[["😀", "Faces", ["😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "🙂", "😉", "😍", "🥰", "😘", "😎", "🤩", "🥳", "😜", "🤪", "😋", "🤗", "🤔", "🙃", "😴", "😢", "😭", "😮", "😱", "😬", "🙄", "😏", "🥺", "😇", "🤭", "😡", "🤯", "😅", "🫠"]], ["❤️", "Hearts & hands", ["❤️", "🧡", "💛", "💚", "💙", "💜", "🩷", "💖", "💕", "💯", "✨", "⭐", "🌟", "🔥", "👍", "👏", "🙌", "🤝", "👋", "✌️", "🤞", "💪", "🙏", "👀", "🎶"]], ["🐶", "Animals", ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🐔", "🐧", "🦄", "🐝", "🦋", "🐢", "🐙", "🐬", "🦈", "🐳", "🐴", "🦒", "🐘"]], ["🍕", "Food", ["🍕", "🍔", "🍟", "🌭", "🍿", "🍩", "🍪", "🎂", "🧁", "🍫", "🍬", "🍭", "🍦", "🍓", "🍉", "🍌", "🍎", "🍇", "🥑", "🌮", "🥞", "🍜"]], ["🎉", "Fun", ["⚽", "🏀", "🎮", "🎨", "🎸", "🎤", "🎧", "📚", "🚀", "🌈", "☀️", "🌙", "⛄", "🎉", "🎈", "🎁", "🏆", "🚲", "🛹", "🏖️", "🎬", "📸"]]];
+(function(){
+  const panel=$("#emojiPanel");let tab=0;
+  window.__emojiToggle=function(){
+    if(!panel.hidden){panel.hidden=true;return}
+    $("#gifPanel").hidden=true;panel.hidden=false;draw();
+  };
+  window.__emojiClose=()=>{panel.hidden=true};
+  function insert(e){
+    const inp=$("#msgIn");if(!inp)return;
+    const a=inp.selectionStart==null?inp.value.length:inp.selectionStart,b=inp.selectionEnd==null?a:inp.selectionEnd;
+    if(inp.value.length-(b-a)+e.length>inp.maxLength)return;
+    inp.value=inp.value.slice(0,a)+e+inp.value.slice(b);
+    const p=a+e.length;inp.setSelectionRange(p,p);inp.focus();sayTyping();
+  }
+  function draw(){
+    panel.textContent="";
+    const tabs=el("div","emtabs");
+    EMOJI_CATS.forEach((c,i)=>{const b=el("button","",c[0]);b.type="button";b.title=c[1];b.setAttribute("aria-label",c[1]);b.setAttribute("aria-pressed",String(i===tab));b.onclick=()=>{tab=i;draw()};tabs.append(b)});
+    const grid=el("div","emgrid");
+    EMOJI_CATS[tab][2].forEach(e=>{const b=el("button","",e);b.type="button";b.setAttribute("aria-label","Add "+e);b.onclick=()=>insert(e);grid.append(b)});
+    panel.append(tabs,grid);
+  }
+})();
+
+/* ================= GIFs (GIPHY, G-rated only) ================= */
+const GIPHY_KEY="hYyfrcwTOKVCyK167bfW22oSG6T5IWxk";
+const GIF_OK=/^https:\/\/media\d*\.giphy\.com\//;
+const BAD_WORDS=/(sex|porn|nude|naked|nsfw|xxx|boob|butt|fuck|shit|bitch|slut|kill|suicide|drug|weed|cannabis|alcohol|beer|vodka|gun|blood|gore|hate|racis|nazi|terror)/i;
+(function(){
+  const btn=$("#gifBtn"),panel=$("#gifPanel");let ctl=null,shown=false;
+  function close(){shown=false;panel.hidden=true;btn.setAttribute("aria-expanded","false");if(ctl)ctl.abort()}
+  async function load(q,grid,note){
+    if(ctl)ctl.abort();ctl=new AbortController();
+    grid.textContent="";note.textContent="Loading…";
+    if(!GIPHY_KEY||GIPHY_KEY.startsWith("__")){note.textContent="GIF search isn't switched on yet. Ask a grown-up to add the GIPHY key.";return}
+    const base="https://api.giphy.com/v1/gifs/"+(q?"search":"trending")+"?api_key="+encodeURIComponent(GIPHY_KEY)+"&limit=24&rating=g&lang=en"+(q?"&q="+encodeURIComponent(q):"");
+    try{
+      const r=await fetch(base,{signal:ctl.signal});if(!r.ok)throw new Error("bad");
+      const j=await r.json();
+      const items=(j.data||[]).filter(x=>x&&x.rating==="g"&&x.images&&x.images.fixed_width&&GIF_OK.test(x.images.fixed_width.url));
+      note.textContent=items.length?"Pick one to post. Powered by GIPHY":"No GIFs found. Try another word!";
+      items.forEach(x=>{
+        const b=document.createElement("button");b.type="button";b.title=x.title||"GIF";
+        const im=document.createElement("img");im.alt=x.title||"GIF";im.loading="lazy";
+        im.src=(x.images.fixed_width_small||x.images.fixed_width).url;b.append(im);
+        b.onclick=()=>{
+          if(!me){showPicker();return}
+          postMessage((x.title||"GIF").slice(0,80)||"GIF",{kind:"gif",gif:x.images.fixed_width.url});close();
+        };
+        grid.append(b);
+      });
+    }catch(e){if(e&&e.name==="AbortError")return;note.textContent="Couldn't load GIFs right now. Try again in a bit."}
+  }
+  function open(){
+    shown=true;panel.hidden=false;btn.setAttribute("aria-expanded","true");panel.textContent="";
+    const row=el("div","row");
+    const inp=el("input","txt");inp.type="text";inp.maxLength=40;inp.placeholder="Search GIFs (try “cats” or “dance”)";inp.autocomplete="off";inp.spellcheck=true;
+    const go=el("button","btn pink","Search");go.type="button";
+    const x=el("button","btn plain","Close");x.type="button";x.onclick=close;
+    row.append(inp,go,x);
+    const grid=el("div","gifgrid"),note=el("div","gifnote","");
+    const run=()=>{
+      const q=inp.value.trim();
+      if(q&&BAD_WORDS.test(q)){grid.textContent="";note.textContent="Let's try a different word!";return}
+      load(q,grid,note);
+    };
+    go.onclick=run;inp.onkeydown=e=>{if(e.key==="Enter")run();if(e.key==="Escape")close()};
+    panel.append(row,grid,note);run();setTimeout(()=>inp.focus(),0);
+  }
+  btn.onclick=()=>{if(panel.hidden){$("#emojiPanel").hidden=true;open()}else close()};
+})();
 
 /* ================= games ================= */
 let sketch=null;
@@ -1119,11 +1273,11 @@ function start(fs){
     onRace:cb=>onSnapshot(collection(fs,"race"),s=>cb(s.docs.map(d=>({id:d.id,data:d.data()}))),ign)
   };
   onSnapshot(collection(fs,"presence"),s=>{presenceMap=new Map(s.docs.map(d=>[d.id,d.data()]));computeOnline()},ign);
-  setInterval(()=>{announce();computeOnline()},20000);
+  setInterval(()=>{announce();computeOnline()},20000);setInterval(renderTyping,1200);
   window.addEventListener("pagehide",()=>{if(me)deleteDoc(doc(fs,"presence",me)).catch(ign)});
   db.collection("messages").orderBy("ts","desc").limit(100).onSnapshot(snap=>{
     dbMsg=true;
-    messages=snap.docs.map(d=>{const x=d.data()||{};return{id:d.id,name:String(x.name||""),text:String(x.text||""),ts:Number(x.ts)||0,kind:x.kind,wpm:x.wpm}})
+    messages=snap.docs.map(d=>{const x=d.data()||{};return{id:d.id,name:String(x.name||""),text:String(x.text||""),ts:Number(x.ts)||0,kind:x.kind,wpm:x.wpm,gif:typeof x.gif==="string"?x.gif:""}})
       .filter(m=>FRIENDS.some(f=>f.n===m.name)).reverse();
     $("#chatStatus").textContent="shared chat";setBanner("");renderMessages();
   },()=>{dbMsg=false;$("#chatStatus").textContent="not connected";setBanner("The shared chat isn't connected, so messages stay on this screen.")});
