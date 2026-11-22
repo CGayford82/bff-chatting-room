@@ -1307,7 +1307,7 @@ function makeCandy(stage){
       wrap.append(el("div","win",(s.a===me?"You want":s.a+" wants")+" to play Poison Candy!"));
       if(s.a===me)wrap.append(el("div","hint","Waiting for a friend to join…"));
       else{const b=el("button","btn pink","Join the game");b.type="button";b.onclick=join;wrap.append(b)}
-      if(s.a===me||stale(s))wrap.append(newBtn("Start over","plain"));
+      if(s.a===me||stale(s)){const rb=el("button","btn purple","Play the robot instead");rb.type="button";rb.onclick=startBot;wrap.append(rb)}
       return;
     }
     const top=el("div","board");top.append(chip(s,"a"),chip(s,"b"));wrap.append(top);
