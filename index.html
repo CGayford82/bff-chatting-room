@@ -201,6 +201,17 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(190px,220px) 
 .board{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:380px}
 .bchip{display:grid;border:3px solid var(--line);border-radius:12px;padding:3px 10px;color:var(--ink-fixed);font:700 12px/1.2 var(--display);box-shadow:2px 2px 0 var(--line)}
 .bchip b{font-size:14px}
+.cgrid{display:grid;grid-template-columns:repeat(4,minmax(58px,92px));gap:8px}
+.candy{position:relative;aspect-ratio:3/2;border:3px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:3px 3px 0 var(--line);padding:6px;display:grid;place-items:center}
+.candy svg{width:100%;height:100%}
+.candy:disabled{cursor:default;box-shadow:2px 2px 0 var(--line)}
+.candy:not(:disabled):hover{background:var(--yellow)}
+.candy.gone{background:var(--panel2);box-shadow:none}
+.candy.gone svg{opacity:.18}
+.candy i{position:absolute;inset:0;margin:auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font:800 13px/1 var(--display);font-style:normal;color:#2B1A55}
+.candy.poison{background:#FFB5BE}
+.candy .skull{position:absolute;top:-9px;right:-7px;width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid var(--line);display:grid;place-items:center;font-size:14px;line-height:1;color:#2B1A55}
+.rules{max-width:340px;font:600 14px/1.4 var(--body);color:var(--fg)}
 .opt.right{background:#8EE6B2}.opt.wrong{background:#FFB5BE}
 
 /* ---------- game area ---------- */
@@ -325,6 +336,7 @@ const ICON={
  car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v-3l2-5h14l2 5v3z"/><circle cx="7.500" cy="16.500" r="2" fill="currentColor"/><circle cx="16.500" cy="16.500" r="2" fill="currentColor"/></svg>',
  keys:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2.500" y="6" width="19" height="12" rx="3"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>',
  abc:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 7 7l4 11M4.500 14h5M14 6v12h3.500a3 3 0 0 0 0-6H14"/></svg>',
+ candy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="5.5" ry="4.5"/><path d="M6.500 12 2.500 8.500v7zM17.500 12l4-3.500v7z"/></svg>',
  hang:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h8M8 21V3h9v4"/><circle cx="17" cy="10" r="3"/></svg>',
  cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="11" rx="2"/><rect x="13" y="9" width="8" height="11" rx="2"/></svg>',
  quiz:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.7.400-1 .9-1 1.700M12 17h.01"/></svg>',
@@ -333,7 +345,8 @@ const GAMES=[
  {id:"sketch",name:"Sketchboard",blurb:"Draw together",icon:"brush",c:"#FF5FA8",live:true,note:"everyone sees what you draw"},
  {id:"cars",name:"Car Race",blurb:"Cartoon cars",icon:"car",c:"#FF8A3D",live:true,note:"tap or press Space to zoom"},
  {id:"hangman",name:"Hangman",blurb:"Guess together",icon:"hang",c:"#FF9CCB",live:true,note:"everyone guesses one word"},
- {id:"snake",name:"Snakemania",blurb:"Score battle",icon:"snake",c:"#1FAF65",live:true,note:"60 seconds, most apples wins"}
+ {id:"snake",name:"Snakemania",blurb:"Score battle",icon:"snake",c:"#1FAF65",live:true,note:"60 seconds, most apples wins"},
+ {id:"candy",name:"Poison Candy",blurb:"Two play, all watch",icon:"candy",c:"#FFD23F",live:true,note:"don't eat your friend's poison"}
 ];
 const $=s=>document.querySelector(s);
 const el=(t,cls,txt)=>{const e=document.createElement(t);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e};
@@ -759,6 +772,7 @@ function renderGame(){
   if(g.id==="cars"){sketch=makeRace(stage);return}
   if(g.id==="hangman"){sketch=makeHangman(stage);return}
   if(g.id==="snake"){sketch=makeSnake(stage);return}
+  if(g.id==="candy"){sketch=makeCandy(stage);return}
   const ph=el("div","placeholder");
   const bi=el("div","bigicon");bi.style.background=g.c;bi.innerHTML=ICON[g.icon];
   ph.append(bi,el("h3","",g.name+" is coming soon!"),el("p","","Try the Sketchboard while we build it."));
@@ -1197,6 +1211,113 @@ function makeSnake(stage){
   return{destroy(){alive=false;clearTimeout(tm);clearInterval(clock);timers.forEach(clearTimeout);window.removeEventListener("keydown",onKey);if(offG)offG();if(offS)offS()}};
 }
 
+/* ================= Poison Candy (two friends play, everyone watches) ================= */
+const CANDY_COLORS=["#FF5FA8","#FF8A3D","#FFD23F","#9B7BFF","#6EE7B7","#FF7A6B","#7CC8FF","#C9B3FF"];
+const CANDY_N=16;
+const candySvg=c=>'<svg viewBox="0 0 48 32" aria-hidden="true"><g stroke="#2B1A55" stroke-width="2.6" stroke-linejoin="round"><path d="M14 16 3 7v18z" fill="'+c+'"/><path d="M34 16l11-9v18z" fill="'+c+'"/><ellipse cx="24" cy="16" rx="12" ry="10" fill="'+c+'"/><path d="M19 9c3 4 3 10 0 14M27 8c3 5 3 11 0 16" fill="none" stroke-linecap="round"/></g></svg>';
+function makeCandy(stage){
+  const wrap=gameShell(stage);let alive=true,state=null,off=null,posted="",problem="",busy=false,locked=false;
+  const mySide=s=>s&&me?(s.a===me?"a":s.b===me?"b":""):"";
+  const other=x=>x==="a"?"b":"a";
+  const nameOf=(s,x)=>x==="a"?s.a:s.b;
+  const phaseOf=s=>{if(!s||!s.a)return"none";if(s.out)return"over";if(!s.b)return"join";if(s.pa<0||s.pb<0)return"pick";return"play"};
+  const stale=s=>Date.now()-(s.ts||0)>4*60*1000;
+  const fresh=()=>({id:Date.now()+"-"+Math.random().toString(36).slice(2,6),ts:Date.now(),a:me,b:"",pa:-1,pb:-1,eaten:[],turn:"a",out:"",last:""});
+  function run(fn){
+    if(!net||busy)return;busy=true;
+    net.candyTx(fn).catch(()=>{problem="That didn't go through. Try again!";draw()}).then(()=>{busy=false});
+  }
+  function startNew(){if(!me){showPicker();return}run(()=>fresh())}
+  function join(){
+    if(!me){showPicker();return}
+    run(d=>{if(!d||!d.a||d.b||d.a===me||d.out)return null;return Object.assign({},d,{b:me,ts:Date.now()})});
+  }
+  function pick(i){
+    run(d=>{const x=mySide(d);if(!d||!x||phaseOf(d)!=="pick")return null;const k=x==="a"?"pa":"pb";if(d[k]>=0)return null;const n=Object.assign({},d,{ts:Date.now()});n[k]=i;return n});
+  }
+  function eat(i){
+    run(d=>{
+      const x=mySide(d);if(!d||!x||phaseOf(d)!=="play"||d.turn!==x)return null;
+      const mine=x==="a"?d.pa:d.pb,theirs=x==="a"?d.pb:d.pa;
+      if(d.eaten.includes(i)||i===mine&&i!==theirs)return null;
+      const n=Object.assign({},d,{ts:Date.now(),eaten:d.eaten.concat([i]),last:i+"|"+me,turn:other(x)});
+      if(i===theirs){n.out=x}
+      else{let left=0;for(let k=0;k<CANDY_N;k++){if(!n.eaten.includes(k)&&k!==n.pa&&k!==n.pb)left++}if(!left)n.out="tie"}
+      return n;
+    });
+  }
+  function grid(s,ph){
+    const x=mySide(s),g=el("div","cgrid");
+    const mine=x==="a"?s.pa:x==="b"?s.pb:-1,theirs=x==="a"?s.pb:x==="b"?s.pa:-1;
+    for(let i=0;i<CANDY_N;i++){
+      const b=el("button","candy");b.type="button";b.innerHTML=candySvg(CANDY_COLORS[i%CANDY_COLORS.length]);
+      b.setAttribute("aria-label","Candy "+(i+1));
+      const at=s.eaten.indexOf(i),eaten=at>=0;
+      const showPoison=ph==="over"?(i===s.pa||i===s.pb):(x&&i===mine);
+      if(eaten){b.classList.add("gone");const who=at%2===0?s.a:s.b;const tag=el("i","",who?who[0]:"");tag.style.background=colorOf(who);tag.title=who+" ate this one";b.append(tag)}
+      if(showPoison){b.classList.add("poison");b.append(el("span","skull","☠"));b.title=ph==="over"?"This one was poisoned":"Your secret poison"}
+      let can=false;
+      if(ph==="pick"&&x&&mine<0){can=true;b.onclick=()=>pick(i)}
+      else if(ph==="play"&&x&&s.turn===x&&!eaten&&!(i===mine&&i!==theirs)){can=true;b.onclick=()=>eat(i)}
+      if(!can)b.disabled=true;
+      g.append(b);
+    }
+    return g;
+  }
+  function chip(s,x){
+    const n=nameOf(s,x),c=el("div","bchip");c.style.background=colorOf(n);
+    c.append(el("b","",n===me?"You":n));
+    c.append(document.createTextNode(s.out===x?"ate the poison":s.out&&s.out!=="tie"?"winner!":phaseOf(s)==="play"&&s.turn===x?"their turn":phaseOf(s)==="pick"?((x==="a"?s.pa:s.pb)>=0?"poison hidden":"choosing…"):" "));
+    if(n===me&&phaseOf(s)==="play"&&s.turn===x)c.lastChild.textContent="your turn";
+    return c;
+  }
+  function draw(){
+    wrap.textContent="";
+    if(!net){wrap.append(el("div","hint","Poison Candy needs the shared room. Refresh the page and try again."));return}
+    if(locked){wrap.append(el("div","win","Poison Candy isn't switched on yet."),el("div","hint","Ask a grown-up to add the new rule in Firebase."));return}
+    if(problem){wrap.append(el("div","hint",problem))}
+    const ph=phaseOf(state),x=mySide(state);
+    const newBtn=(label,cls)=>{const b=el("button","btn "+(cls||"pink"),label);b.type="button";b.onclick=startNew;return b};
+    if(ph==="none"){
+      wrap.append(el("div","hint","Two friends play. Everyone else watches!"));
+      wrap.append(el("div","rules","Each player secretly poisons one candy. Then you take turns eating candies. Eat your friend's poison and you're out!"));
+      wrap.append(newBtn("Start a game"));return;
+    }
+    const s=state;
+    if(ph==="join"){
+      wrap.append(el("div","win",(s.a===me?"You want":s.a+" wants")+" to play Poison Candy!"));
+      if(s.a===me)wrap.append(el("div","hint","Waiting for a friend to join…"));
+      else{const b=el("button","btn pink","Join the game");b.type="button";b.onclick=join;wrap.append(b)}
+      if(s.a===me||stale(s))wrap.append(newBtn("Start over","plain"));
+      return;
+    }
+    const top=el("div","board");top.append(chip(s,"a"),chip(s,"b"));wrap.append(top);
+    let msg="";
+    if(ph==="pick"){
+      if(x){const mine=x==="a"?s.pa:s.pb;msg=mine<0?"Pick one candy to poison. Shh, it's a secret!":"Your poison is hidden. Waiting for "+nameOf(s,other(x))+"…"}
+      else msg=s.a+" and "+s.b+" are hiding their poison…";
+    }else if(ph==="play"){
+      const t=nameOf(s,s.turn);
+      msg=x?(s.turn===x?"Your turn! Pick a candy to eat.":"Waiting for "+t+" to eat a candy…"):"It's "+t+"'s turn to eat a candy.";
+      const lp=(s.last||"").split("|");
+      if(lp[1])msg+=" ("+(lp[1]===me?"You":lp[1])+" just ate a safe one.)";
+    }
+    if(msg)wrap.append(el("div","hint",msg));
+    wrap.append(grid(s,ph));
+    if(ph==="over"){
+      let t;
+      if(s.out==="tie")t="Only the poison is left. It's a tie!";
+      else{const loser=nameOf(s,s.out),winner=nameOf(s,other(s.out));t=(loser===me?"Oh no, you":loser)+" ate the poison! "+(winner===me?"You win!":winner+" wins!")}
+      wrap.append(el("div","win",t));
+      wrap.append(newBtn("Play again"));
+      if(s.out!=="tie"&&x&&x!==s.out&&posted!==s.id){posted=s.id;postMessage("🍬 I won Poison Candy against "+nameOf(s,s.out)+"!")}
+    }else if(x||stale(s)){wrap.append(newBtn("Start over","plain"))}
+  }
+  if(net)off=net.candyOn(d=>{if(!alive)return;problem="";state=d&&d.a&&Array.isArray(d.eaten)?d:null;draw()},()=>{if(!alive)return;locked=true;draw()});
+  draw();
+  return{destroy(){alive=false;if(off)off()}};
+}
+
 /* ================= start ================= */
 renderFriends();renderGames();renderGame();renderComposer();renderMessages();
 $("#chatStatus").textContent="connecting…";
@@ -1270,6 +1391,11 @@ function start(fs){
     }).catch(ign),
     setScore:(n,o)=>setDoc(doc(fs,"scores",n),o).catch(ign),
     onScores:cb=>onSnapshot(collection(fs,"scores"),s=>cb(s.docs.map(d=>({id:d.id,data:d.data()}))),ign),
+    candyOn:(cb,err)=>onSnapshot(doc(fs,"candy","game"),s=>cb(s.exists()?s.data():null),err),
+    candyTx:fn=>runTransaction(fs,async tx=>{
+      const r=doc(fs,"candy","game"),sn=await tx.get(r);
+      const n=fn(sn.exists()?sn.data():null);if(n)tx.set(r,n);
+    }),
     onRace:cb=>onSnapshot(collection(fs,"race"),s=>cb(s.docs.map(d=>({id:d.id,data:d.data()}))),ign)
   };
   onSnapshot(collection(fs,"presence"),s=>{presenceMap=new Map(s.docs.map(d=>[d.id,d.data()]));computeOnline()},ign);
