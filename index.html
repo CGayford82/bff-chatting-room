@@ -1213,7 +1213,7 @@ function makeSnake(stage){
 
 /* ================= Poison Candy (two friends play, everyone watches) ================= */
 const CANDY_COLORS=["#FF5FA8","#FF8A3D","#FFD23F","#9B7BFF","#6EE7B7","#FF7A6B","#7CC8FF","#C9B3FF"];
-const CANDY_N=16;
+const CANDY_N=16,CANDY_BOT="Robot";
 const candySvg=c=>'<svg viewBox="0 0 48 32" aria-hidden="true"><g stroke="#2B1A55" stroke-width="2.6" stroke-linejoin="round"><path d="M14 16 3 7v18z" fill="'+c+'"/><path d="M34 16l11-9v18z" fill="'+c+'"/><ellipse cx="24" cy="16" rx="12" ry="10" fill="'+c+'"/><path d="M19 9c3 4 3 10 0 14M27 8c3 5 3 11 0 16" fill="none" stroke-linecap="round"/></g></svg>';
 function makeCandy(stage){
   const wrap=gameShell(stage);let alive=true,state=null,off=null,posted="",problem="",busy=false,locked=false;
@@ -1228,6 +1228,25 @@ function makeCandy(stage){
     net.candyTx(fn).catch(()=>{problem="That didn't go through. Try again!";draw()}).then(()=>{busy=false});
   }
   function startNew(){if(!me){showPicker();return}run(()=>fresh())}
+  function startBot(){if(!me){showPicker();return}run(()=>Object.assign(fresh(),{b:CANDY_BOT,pb:Math.floor(Math.random()*CANDY_N)}))}
+  let botKey="",botTimer=0;
+  function botThink(){
+    const s=state;if(!s||s.b!==CANDY_BOT||s.a!==me||phaseOf(s)!=="play"||s.turn!=="b")return;
+    const key=s.id+":"+s.eaten.length;if(botKey===key)return;botKey=key;
+    clearTimeout(botTimer);botTimer=setTimeout(()=>{
+      if(!alive)return;busy=false;
+      run(d=>{
+        if(!d||d.id!==s.id||d.b!==CANDY_BOT||phaseOf(d)!=="play"||d.turn!=="b")return null;
+        const open=[];for(let k=0;k<CANDY_N;k++){if(!d.eaten.includes(k)&&k!==d.pb)open.push(k)}
+        if(!open.length)return Object.assign({},d,{out:"tie",ts:Date.now()});
+        const i=open[Math.floor(Math.random()*open.length)];
+        const n=Object.assign({},d,{ts:Date.now(),eaten:d.eaten.concat([i]),last:i+"|"+CANDY_BOT,turn:"a"});
+        if(i===d.pa){n.out="b"}
+        else{let left=0;for(let k=0;k<CANDY_N;k++){if(!n.eaten.includes(k)&&k!==n.pa&&k!==n.pb)left++}if(!left)n.out="tie"}
+        return n;
+      });
+    },1100);
+  }
   function join(){
     if(!me){showPicker();return}
     run(d=>{if(!d||!d.a||d.b||d.a===me||d.out)return null;return Object.assign({},d,{b:me,ts:Date.now()})});
@@ -1254,7 +1273,7 @@ function makeCandy(stage){
       b.setAttribute("aria-label","Candy "+(i+1));
       const at=s.eaten.indexOf(i),eaten=at>=0;
       const showPoison=ph==="over"?(i===s.pa||i===s.pb):(x&&i===mine);
-      if(eaten){b.classList.add("gone");const who=at%2===0?s.a:s.b;const tag=el("i","",who?who[0]:"");tag.style.background=colorOf(who);tag.title=who+" ate this one";b.append(tag)}
+      if(eaten){b.classList.add("gone");const who=at%2===0?s.a:s.b;const tag=el("i","",who===CANDY_BOT?"🤖":who?who[0]:"");tag.style.background=colorOf(who);tag.title=who+" ate this one";b.append(tag)}
       if(showPoison){b.classList.add("poison");b.append(el("span","skull","☠"));b.title=ph==="over"?"This one was poisoned":"Your secret poison"}
       let can=false;
       if(ph==="pick"&&x&&mine<0){can=true;b.onclick=()=>pick(i)}
@@ -1281,7 +1300,7 @@ function makeCandy(stage){
     if(ph==="none"){
       wrap.append(el("div","hint","Two friends play. Everyone else watches!"));
       wrap.append(el("div","rules","Each player secretly poisons one candy. Then you take turns eating candies. Eat your friend's poison and you're out!"));
-      wrap.append(newBtn("Start a game"));return;
+      const row=el("div","row wrap");row.style.justifyContent="center";const rb=el("button","btn purple","Play the robot");rb.type="button";rb.onclick=startBot;row.append(newBtn("Start a game"),rb);wrap.append(row);return;
     }
     const s=state;
     if(ph==="join"){
@@ -1309,13 +1328,13 @@ function makeCandy(stage){
       if(s.out==="tie")t="Only the poison is left. It's a tie!";
       else{const loser=nameOf(s,s.out),winner=nameOf(s,other(s.out));t=(loser===me?"Oh no, you":loser)+" ate the poison! "+(winner===me?"You win!":winner+" wins!")}
       wrap.append(el("div","win",t));
-      wrap.append(newBtn("Play again"));
-      if(s.out!=="tie"&&x&&x!==s.out&&posted!==s.id){posted=s.id;postMessage("🍬 I won Poison Candy against "+nameOf(s,s.out)+"!")}
+      const row=el("div","row wrap");row.style.justifyContent="center";const rb=el("button","btn purple","Play the robot");rb.type="button";rb.onclick=startBot;row.append(newBtn("Play again"),rb);wrap.append(row);
+      if(s.out!=="tie"&&s.b!==CANDY_BOT&&x&&x!==s.out&&posted!==s.id){posted=s.id;postMessage("🍬 I won Poison Candy against "+nameOf(s,s.out)+"!")}
     }else if(x||stale(s)){wrap.append(newBtn("Start over","plain"))}
   }
-  if(net)off=net.candyOn(d=>{if(!alive)return;problem="";state=d&&d.a&&Array.isArray(d.eaten)?d:null;draw()},()=>{if(!alive)return;locked=true;draw()});
+  if(net)off=net.candyOn(d=>{if(!alive)return;problem="";state=d&&d.a&&Array.isArray(d.eaten)?d:null;draw();botThink()},()=>{if(!alive)return;locked=true;draw()});
   draw();
-  return{destroy(){alive=false;if(off)off()}};
+  return{destroy(){alive=false;clearTimeout(botTimer);if(off)off()}};
 }
 
 /* ================= start ================= */
